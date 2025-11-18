@@ -93,7 +93,6 @@ class AM_Author_Box {
 
 		$bio = ! empty( $custom_bio ) ? $custom_bio : get_the_author_meta( 'description', $author_id );
 		$name = get_the_author_meta( 'display_name', $author_id );
-		$url = get_author_posts_url( $author_id );
 
 		// Social links - using custom user meta.
 		$twitter = get_user_meta( $author_id, 'am_twitter', true );
@@ -146,7 +145,7 @@ class AM_Author_Box {
 		}
 
 		$html .= '<div class="am-author-info" style="flex: 1;">';
-		$html .= '<h3 class="am-author-name" style="margin: 0 0 12px 0; font-size: 22px; font-weight: 700; letter-spacing: 0.3px;"><a href="' . esc_url( $url ) . '" style="text-decoration: none; color: ' . esc_attr( $text_color ) . '; transition: color 0.3s ease;" onmouseover="this.style.color=\'' . esc_attr( $border_color ) . '\'" onmouseout="this.style.color=\'' . esc_attr( $text_color ) . '\'">' . esc_html( $name ) . '</a></h3>';
+		$html .= '<h3 class="am-author-name" style="margin: 0 0 12px 0; font-size: 22px; font-weight: 700; letter-spacing: 0.3px; color: ' . esc_attr( $text_color ) . ';">' . esc_html( $name ) . '</h3>';
 
 		if ( ! empty( $bio ) ) {
 			$html .= '<div class="am-author-bio" style="margin-bottom: 15px; color: ' . esc_attr( $text_color ) . '; line-height: 1.6; opacity: 0.9;">' . wp_kses_post( wpautop( $bio ) ) . '</div>';
