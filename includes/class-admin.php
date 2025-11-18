@@ -97,11 +97,14 @@ class AM_Admin {
 			return;
 		}
 
+		// Enqueue WordPress color picker.
+		wp_enqueue_style( 'wp-color-picker' );
+
 		// Enqueue admin CSS.
 		wp_enqueue_style(
 			'am-admin',
 			AM_PLUGIN_URL . 'assets/css/admin.css',
-			array(),
+			array( 'wp-color-picker' ),
 			AM_VERSION
 		);
 
@@ -109,7 +112,7 @@ class AM_Admin {
 		wp_enqueue_script(
 			'am-admin',
 			AM_PLUGIN_URL . 'assets/js/admin.js',
-			array(),
+			array( 'jquery', 'wp-color-picker' ),
 			AM_VERSION,
 			true
 		);

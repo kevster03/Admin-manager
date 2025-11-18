@@ -3,7 +3,7 @@
  * Plugin Name: Admin Manager
  * Plugin URI: https://github.com/kevster03/Admin-manager
  * Description: Lightweight, modular WordPress plugin for content features. Includes reading time calculator, customizable table of contents, author box with social links, and custom login page styling.
- * Version: 3.0.0
+ * Version: 3.0.1
  * Requires at least: 5.9
  * Requires PHP: 7.4
  * Author: Admin Manager Team
@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Define plugin constants.
-define( 'AM_VERSION', '3.0.0' );
+define( 'AM_VERSION', '3.0.1' );
 define( 'AM_PLUGIN_FILE', __FILE__ );
 define( 'AM_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AM_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

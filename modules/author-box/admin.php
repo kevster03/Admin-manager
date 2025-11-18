@@ -21,6 +21,13 @@ if ( isset( $_POST['am_save_author_box'] ) && am_verify_nonce( 'am_author_box_no
 			'show_avatar'        => isset( $_POST['show_avatar'] ) ? true : false,
 			'show_social'        => isset( $_POST['show_social'] ) ? true : false,
 			'size'               => isset( $_POST['size'] ) ? sanitize_text_field( $_POST['size'] ) : 'medium',
+			'title_prefix'       => isset( $_POST['title_prefix'] ) ? sanitize_text_field( $_POST['title_prefix'] ) : __( 'About the Author', 'admin-manager' ),
+			'bg_color'           => isset( $_POST['bg_color'] ) ? sanitize_hex_color( $_POST['bg_color'] ) : '#f9f9f9',
+			'text_color'         => isset( $_POST['text_color'] ) ? sanitize_hex_color( $_POST['text_color'] ) : '#333333',
+			'border_color'       => isset( $_POST['border_color'] ) ? sanitize_hex_color( $_POST['border_color'] ) : '#dddddd',
+			'border_width'       => isset( $_POST['border_width'] ) ? absint( $_POST['border_width'] ) : 1,
+			'border_radius'      => isset( $_POST['border_radius'] ) ? absint( $_POST['border_radius'] ) : 8,
+			'padding'            => isset( $_POST['padding'] ) ? absint( $_POST['padding'] ) : 20,
 		);
 
 		foreach ( $settings as $key => $value ) {
@@ -38,6 +45,13 @@ $position = isset( $settings['position'] ) ? $settings['position'] : 'after';
 $show_avatar = isset( $settings['show_avatar'] ) ? $settings['show_avatar'] : true;
 $show_social = isset( $settings['show_social'] ) ? $settings['show_social'] : true;
 $size = isset( $settings['size'] ) ? $settings['size'] : 'medium';
+$title_prefix = isset( $settings['title_prefix'] ) ? $settings['title_prefix'] : __( 'About the Author', 'admin-manager' );
+$bg_color = isset( $settings['bg_color'] ) ? $settings['bg_color'] : '#f9f9f9';
+$text_color = isset( $settings['text_color'] ) ? $settings['text_color'] : '#333333';
+$border_color = isset( $settings['border_color'] ) ? $settings['border_color'] : '#dddddd';
+$border_width = isset( $settings['border_width'] ) ? $settings['border_width'] : 1;
+$border_radius = isset( $settings['border_radius'] ) ? $settings['border_radius'] : 8;
+$padding = isset( $settings['padding'] ) ? $settings['padding'] : 20;
 
 // Get all post types.
 $post_types = get_post_types( array( 'public' => true ), 'objects' );
@@ -52,6 +66,8 @@ $post_types = get_post_types( array( 'public' => true ), 'objects' );
 
 	<form method="post" action="">
 		<?php wp_nonce_field( 'am_save_author_box', 'am_author_box_nonce' ); ?>
+
+		<h2><?php esc_html_e( 'General Settings', 'admin-manager' ); ?></h2>
 
 		<table class="form-table">
 			<tr>
@@ -97,6 +113,25 @@ $post_types = get_post_types( array( 'public' => true ), 'objects' );
 
 			<tr>
 				<th scope="row">
+					<label for="title_prefix"><?php esc_html_e( 'Title/Prefix', 'admin-manager' ); ?></label>
+				</th>
+				<td>
+					<input
+						type="text"
+						name="title_prefix"
+						id="title_prefix"
+						value="<?php echo esc_attr( $title_prefix ); ?>"
+						class="regular-text"
+						placeholder="<?php esc_attr_e( 'About the Author', 'admin-manager' ); ?>"
+					>
+					<p class="description">
+						<?php esc_html_e( 'Text to display above the author name (e.g., "Written by", "Post Author", "About the Author"). Leave empty to hide.', 'admin-manager' ); ?>
+					</p>
+				</td>
+			</tr>
+
+			<tr>
+				<th scope="row">
 					<?php esc_html_e( 'Display Options', 'admin-manager' ); ?>
 				</th>
 				<td>
@@ -127,6 +162,109 @@ $post_types = get_post_types( array( 'public' => true ), 'objects' );
 							<?php esc_html_e( 'Large', 'admin-manager' ); ?>
 						</option>
 					</select>
+				</td>
+			</tr>
+		</table>
+
+		<h2><?php esc_html_e( 'Appearance', 'admin-manager' ); ?></h2>
+
+		<table class="form-table">
+			<tr>
+				<th scope="row">
+					<label for="bg_color"><?php esc_html_e( 'Background Color', 'admin-manager' ); ?></label>
+				</th>
+				<td>
+					<input
+						type="text"
+						name="bg_color"
+						id="bg_color"
+						value="<?php echo esc_attr( $bg_color ); ?>"
+						class="am-color-picker"
+					>
+				</td>
+			</tr>
+
+			<tr>
+				<th scope="row">
+					<label for="text_color"><?php esc_html_e( 'Text Color', 'admin-manager' ); ?></label>
+				</th>
+				<td>
+					<input
+						type="text"
+						name="text_color"
+						id="text_color"
+						value="<?php echo esc_attr( $text_color ); ?>"
+						class="am-color-picker"
+					>
+				</td>
+			</tr>
+
+			<tr>
+				<th scope="row">
+					<label for="border_color"><?php esc_html_e( 'Border Color', 'admin-manager' ); ?></label>
+				</th>
+				<td>
+					<input
+						type="text"
+						name="border_color"
+						id="border_color"
+						value="<?php echo esc_attr( $border_color ); ?>"
+						class="am-color-picker"
+					>
+					<p class="description">
+						<?php esc_html_e( 'Also used for social media buttons', 'admin-manager' ); ?>
+					</p>
+				</td>
+			</tr>
+
+			<tr>
+				<th scope="row">
+					<label for="border_width"><?php esc_html_e( 'Border Width (px)', 'admin-manager' ); ?></label>
+				</th>
+				<td>
+					<input
+						type="number"
+						name="border_width"
+						id="border_width"
+						value="<?php echo esc_attr( $border_width ); ?>"
+						min="0"
+						max="10"
+						class="small-text"
+					>
+				</td>
+			</tr>
+
+			<tr>
+				<th scope="row">
+					<label for="border_radius"><?php esc_html_e( 'Border Radius (px)', 'admin-manager' ); ?></label>
+				</th>
+				<td>
+					<input
+						type="number"
+						name="border_radius"
+						id="border_radius"
+						value="<?php echo esc_attr( $border_radius ); ?>"
+						min="0"
+						max="50"
+						class="small-text"
+					>
+				</td>
+			</tr>
+
+			<tr>
+				<th scope="row">
+					<label for="padding"><?php esc_html_e( 'Padding (px)', 'admin-manager' ); ?></label>
+				</th>
+				<td>
+					<input
+						type="number"
+						name="padding"
+						id="padding"
+						value="<?php echo esc_attr( $padding ); ?>"
+						min="0"
+						max="50"
+						class="small-text"
+					>
 				</td>
 			</tr>
 		</table>

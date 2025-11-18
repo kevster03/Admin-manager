@@ -13,6 +13,7 @@
 	function init() {
 		initTabs();
 		initModuleToggles();
+		initColorPickers();
 	}
 
 	/**
@@ -70,6 +71,15 @@
 				checkbox.closest('.am-module-card').classList.add('active');
 			}
 		});
+	}
+
+	/**
+	 * Initialize WordPress color pickers.
+	 */
+	function initColorPickers() {
+		if (typeof jQuery !== 'undefined' && jQuery.fn.wpColorPicker) {
+			jQuery('.am-color-picker').wpColorPicker();
+		}
 	}
 
 	/**
