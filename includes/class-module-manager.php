@@ -55,11 +55,11 @@ class AM_Module_Manager {
 				'file'        => 'reading-time/class-reading-time.php',
 				'class'       => 'AM_Reading_Time',
 			),
-			'media-folders'       => array(
-				'name'        => __( 'Virtual Media Folders', 'admin-manager' ),
-				'description' => __( 'Organize media library with virtual folders (taxonomy-based, no file changes).', 'admin-manager' ),
-				'file'        => 'media-folders/class-media-folders.php',
-				'class'       => 'AM_Media_Folders',
+			'table-of-contents'   => array(
+				'name'        => __( 'Table of Contents', 'admin-manager' ),
+				'description' => __( 'Automatically generate a table of contents from post headings with anchor links.', 'admin-manager' ),
+				'file'        => 'table-of-contents/class-table-of-contents.php',
+				'class'       => 'AM_Table_Of_Contents',
 			),
 			'custom-login'        => array(
 				'name'        => __( 'Custom Login', 'admin-manager' ),

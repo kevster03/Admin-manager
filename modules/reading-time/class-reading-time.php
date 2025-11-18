@@ -68,17 +68,42 @@ class AM_Reading_Time {
 		}
 
 		$reading_time = $this->calculate_reading_time( $post_id );
+		$settings = am_get_module_setting( 'reading-time' );
 
-		// Custom colors: #d30038, #f2dec1, #c6e0f2, #e0c8ff, #2f010d.
-		$html = sprintf(
-			'<div class="am-reading-time" style="display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #f2dec1 0%%, #e0c8ff 100%%); border: 2px solid #d30038; padding: 10px 18px; margin: 20px 0; border-radius: 8px; box-shadow: 0 3px 10px rgba(47, 1, 13, 0.1); transition: transform 0.3s ease, box-shadow 0.3s ease;">' .
-			'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="%3$s" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>' .
-			'<span style="color: #2f010d; font-size: 15px; font-weight: 600; letter-spacing: 0.3px;">%1$s</span>' .
-			'</div>',
-			esc_html( $reading_time ),
-			'#d30038',
-			'#d30038'
+		// Get styling options with proper defaults.
+		$bg_color       = isset( $settings['bg_color'] ) ? sanitize_hex_color( $settings['bg_color'] ) : '#f5f5f5';
+		$text_color     = isset( $settings['text_color'] ) ? sanitize_hex_color( $settings['text_color'] ) : '#333333';
+		$border_color   = isset( $settings['border_color'] ) ? sanitize_hex_color( $settings['border_color'] ) : '#dddddd';
+		$border_width   = isset( $settings['border_width'] ) ? absint( $settings['border_width'] ) : 1;
+		$border_radius  = isset( $settings['border_radius'] ) ? absint( $settings['border_radius'] ) : 4;
+		$padding        = isset( $settings['padding'] ) ? absint( $settings['padding'] ) : 10;
+		$show_icon      = ! empty( $settings['show_icon'] );
+
+		$container_style = sprintf(
+			'display: inline-flex; align-items: center; gap: 8px; background-color: %s; border: %dpx solid %s; padding: %dpx 18px; margin: 20px 0; border-radius: %dpx; box-shadow: 0 2px 6px rgba(0,0,0,0.05);',
+			$bg_color,
+			$border_width,
+			$border_color,
+			$padding,
+			$border_radius
 		);
+
+		$html = '<div class="am-reading-time" style="' . esc_attr( $container_style ) . '">';
+
+		if ( $show_icon ) {
+			$html .= sprintf(
+				'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="%s" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>',
+				esc_attr( $border_color )
+			);
+		}
+
+		$html .= sprintf(
+			'<span style="color: %s; font-size: 15px; font-weight: 600; letter-spacing: 0.3px;">%s</span>',
+			esc_attr( $text_color ),
+			esc_html( $reading_time )
+		);
+
+		$html .= '</div>';
 
 		return apply_filters( 'am_reading_time_html', $html, $post_id );
 	}
