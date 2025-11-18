@@ -74,6 +74,8 @@ class AM_Author_Box {
 		$settings = am_get_module_setting( 'author-box' );
 		$show_avatar = isset( $settings['show_avatar'] ) ? $settings['show_avatar'] : true;
 		$show_social = isset( $settings['show_social'] ) ? $settings['show_social'] : true;
+		$show_badges = isset( $settings['show_badges'] ) ? $settings['show_badges'] : true;
+		$layout = isset( $settings['layout'] ) ? $settings['layout'] : 'horizontal';
 		$size = isset( $settings['size'] ) ? $settings['size'] : 'medium';
 
 		// Get styling options with proper defaults.
@@ -101,7 +103,63 @@ class AM_Author_Box {
 		$instagram = get_user_meta( $author_id, 'am_instagram', true );
 		$website = get_the_author_meta( 'url', $author_id );
 
-		// Build container styles from settings.
+		// Expertise badges.
+		$expertise_badges = get_user_meta( $author_id, 'am_expertise_badges', true );
+		$badges_array = array();
+		if ( ! empty( $expertise_badges ) ) {
+			$badges_array = array_map( 'trim', explode( ',', $expertise_badges ) );
+		}
+
+		// Prepare data array for layout methods.
+		$data = array(
+			'author_id'     => $author_id,
+			'name'          => $name,
+			'bio'           => $bio,
+			'show_avatar'   => $show_avatar,
+			'show_social'   => $show_social,
+			'show_badges'   => $show_badges,
+			'size'          => $size,
+			'title_prefix'  => $title_prefix,
+			'bg_color'      => $bg_color,
+			'text_color'    => $text_color,
+			'border_color'  => $border_color,
+			'border_width'  => $border_width,
+			'border_radius' => $border_radius,
+			'padding'       => $padding,
+			'twitter'       => $twitter,
+			'linkedin'      => $linkedin,
+			'facebook'      => $facebook,
+			'instagram'     => $instagram,
+			'website'       => $website,
+			'badges_array'  => $badges_array,
+		);
+
+		// Generate HTML based on layout.
+		switch ( $layout ) {
+			case 'vertical':
+				$html = $this->render_vertical_layout( $data );
+				break;
+			case 'card':
+				$html = $this->render_card_layout( $data );
+				break;
+			case 'horizontal':
+			default:
+				$html = $this->render_horizontal_layout( $data );
+				break;
+		}
+
+		return apply_filters( 'am_author_box_html', $html, $author_id, $post_id );
+	}
+
+	/**
+	 * Render horizontal layout (default).
+	 *
+	 * @param array $data Author data and settings.
+	 * @return string HTML output.
+	 */
+	private function render_horizontal_layout( $data ) {
+		extract( $data );
+
 		$container_styles = sprintf(
 			'background-color: %s; color: %s; border: %dpx solid %s; border-radius: %dpx; padding: %dpx; margin: 30px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.05);',
 			$bg_color,
@@ -112,7 +170,7 @@ class AM_Author_Box {
 			$padding
 		);
 
-		$box_class = 'am-author-box am-author-box-' . esc_attr( $size );
+		$box_class = 'am-author-box am-author-box-' . esc_attr( $size ) . ' am-author-box-horizontal';
 		$html = '<div class="' . esc_attr( $box_class ) . '" style="' . esc_attr( $container_styles ) . '">';
 
 		// Title/Prefix
@@ -122,75 +180,253 @@ class AM_Author_Box {
 
 		$html .= '<div class="am-author-content" style="display: flex; gap: 25px; align-items: start;">';
 
+		// Avatar
 		if ( $show_avatar ) {
-			$avatar_size = 'large' === $size ? 128 : ( 'small' === $size ? 48 : 80 );
-			$avatar_border = sprintf( 'border-radius: 50%%; border: 2px solid %s; box-shadow: 0 2px 6px rgba(0,0,0,0.08);', $border_color );
-
-			$html .= '<div class="am-author-avatar" style="flex-shrink: 0;">';
-
-			// Check for custom avatar from media library.
-			$custom_avatar_id = get_user_meta( $author_id, 'am_custom_avatar', true );
-			if ( $custom_avatar_id ) {
-				$avatar_url = wp_get_attachment_image_url( $custom_avatar_id, array( $avatar_size, $avatar_size ) );
-				if ( $avatar_url ) {
-					$html .= '<img src="' . esc_url( $avatar_url ) . '" alt="' . esc_attr( $name ) . '" width="' . esc_attr( $avatar_size ) . '" height="' . esc_attr( $avatar_size ) . '" style="' . esc_attr( $avatar_border ) . '">';
-				} else {
-					$html .= get_avatar( $author_id, $avatar_size, '', $name, array( 'style' => $avatar_border ) );
-				}
-			} else {
-				$html .= get_avatar( $author_id, $avatar_size, '', $name, array( 'style' => $avatar_border ) );
-			}
-
-			$html .= '</div>';
+			$html .= $this->render_avatar( $author_id, $name, $size, $border_color );
 		}
 
 		$html .= '<div class="am-author-info" style="flex: 1;">';
 		$html .= '<h3 class="am-author-name" style="margin: 0 0 12px 0; font-size: 22px; font-weight: 700; letter-spacing: 0.3px; color: ' . esc_attr( $text_color ) . ';">' . esc_html( $name ) . '</h3>';
 
+		// Expertise badges
+		if ( $show_badges && ! empty( $badges_array ) ) {
+			$html .= $this->render_badges( $badges_array, $border_color );
+		}
+
 		if ( ! empty( $bio ) ) {
 			$html .= '<div class="am-author-bio" style="margin-bottom: 15px; color: ' . esc_attr( $text_color ) . '; line-height: 1.6; opacity: 0.9;">' . wp_kses_post( wpautop( $bio ) ) . '</div>';
 		}
 
+		// Social links
 		if ( $show_social && ( $twitter || $linkedin || $facebook || $instagram || $website ) ) {
-			// Use border color for social buttons, make it slightly darker on hover.
-			$button_color = $border_color;
-			$button_hover = $this->darken_color( $border_color, 15 );
-
-			$button_style = sprintf(
-				'color: #fff; background: %s; padding: 6px 14px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 600; transition: all 0.3s ease; display: inline-block; box-shadow: 0 2px 5px rgba(0,0,0,0.1);',
-				$button_color
-			);
-
-			$html .= '<div class="am-author-social" style="display: flex; gap: 12px; flex-wrap: wrap;">';
-
-			if ( $website ) {
-				$html .= '<a href="' . esc_url( $website ) . '" target="_blank" rel="noopener" style="' . esc_attr( $button_style ) . '" onmouseover="this.style.background=\'' . esc_attr( $button_hover ) . '\'; this.style.transform=\'translateY(-2px)\'; this.style.boxShadow=\'0 4px 8px rgba(0,0,0,0.15)\'" onmouseout="this.style.background=\'' . esc_attr( $button_color ) . '\'; this.style.transform=\'translateY(0)\'; this.style.boxShadow=\'0 2px 5px rgba(0,0,0,0.1)\'">' . esc_html__( 'Website', 'admin-manager' ) . '</a>';
-			}
-
-			if ( $twitter ) {
-				$html .= '<a href="https://twitter.com/' . esc_attr( $twitter ) . '" target="_blank" rel="noopener" style="' . esc_attr( $button_style ) . '" onmouseover="this.style.background=\'' . esc_attr( $button_hover ) . '\'; this.style.transform=\'translateY(-2px)\'; this.style.boxShadow=\'0 4px 8px rgba(0,0,0,0.15)\'" onmouseout="this.style.background=\'' . esc_attr( $button_color ) . '\'; this.style.transform=\'translateY(0)\'; this.style.boxShadow=\'0 2px 5px rgba(0,0,0,0.1)\'">' . esc_html__( 'Twitter', 'admin-manager' ) . '</a>';
-			}
-
-			if ( $linkedin ) {
-				$html .= '<a href="' . esc_url( $linkedin ) . '" target="_blank" rel="noopener" style="' . esc_attr( $button_style ) . '" onmouseover="this.style.background=\'' . esc_attr( $button_hover ) . '\'; this.style.transform=\'translateY(-2px)\'; this.style.boxShadow=\'0 4px 8px rgba(0,0,0,0.15)\'" onmouseout="this.style.background=\'' . esc_attr( $button_color ) . '\'; this.style.transform=\'translateY(0)\'; this.style.boxShadow=\'0 2px 5px rgba(0,0,0,0.1)\'">' . esc_html__( 'LinkedIn', 'admin-manager' ) . '</a>';
-			}
-
-			if ( $facebook ) {
-				$html .= '<a href="' . esc_url( $facebook ) . '" target="_blank" rel="noopener" style="' . esc_attr( $button_style ) . '" onmouseover="this.style.background=\'' . esc_attr( $button_hover ) . '\'; this.style.transform=\'translateY(-2px)\'; this.style.boxShadow=\'0 4px 8px rgba(0,0,0,0.15)\'" onmouseout="this.style.background=\'' . esc_attr( $button_color ) . '\'; this.style.transform=\'translateY(0)\'; this.style.boxShadow=\'0 2px 5px rgba(0,0,0,0.1)\'">' . esc_html__( 'Facebook', 'admin-manager' ) . '</a>';
-			}
-
-			if ( $instagram ) {
-				$html .= '<a href="' . esc_url( $instagram ) . '" target="_blank" rel="noopener" style="' . esc_attr( $button_style ) . '" onmouseover="this.style.background=\'' . esc_attr( $button_hover ) . '\'; this.style.transform=\'translateY(-2px)\'; this.style.boxShadow=\'0 4px 8px rgba(0,0,0,0.15)\'" onmouseout="this.style.background=\'' . esc_attr( $button_color ) . '\'; this.style.transform=\'translateY(0)\'; this.style.boxShadow=\'0 2px 5px rgba(0,0,0,0.1)\'">' . esc_html__( 'Instagram', 'admin-manager' ) . '</a>';
-			}
-
-			$html .= '</div>';
+			$html .= $this->render_social_links( $data );
 		}
 
 		$html .= '</div>'; // .am-author-info
 		$html .= '</div>'; // .am-author-content
 		$html .= '</div>'; // .am-author-box
 
-		return apply_filters( 'am_author_box_html', $html, $author_id, $post_id );
+		return $html;
+	}
+
+	/**
+	 * Render vertical layout (avatar on top).
+	 *
+	 * @param array $data Author data and settings.
+	 * @return string HTML output.
+	 */
+	private function render_vertical_layout( $data ) {
+		extract( $data );
+
+		$container_styles = sprintf(
+			'background-color: %s; color: %s; border: %dpx solid %s; border-radius: %dpx; padding: %dpx; margin: 30px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.05);',
+			$bg_color,
+			$text_color,
+			$border_width,
+			$border_color,
+			$border_radius,
+			$padding
+		);
+
+		$box_class = 'am-author-box am-author-box-' . esc_attr( $size ) . ' am-author-box-vertical';
+		$html = '<div class="' . esc_attr( $box_class ) . '" style="' . esc_attr( $container_styles ) . '">';
+
+		// Title/Prefix
+		if ( ! empty( $title_prefix ) ) {
+			$html .= '<h4 class="am-author-title" style="margin: 0 0 15px 0; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: ' . esc_attr( $border_color ) . '; opacity: 0.8; text-align: center;">' . esc_html( $title_prefix ) . '</h4>';
+		}
+
+		$html .= '<div class="am-author-content" style="display: flex; flex-direction: column; align-items: center; text-align: center;">';
+
+		// Avatar
+		if ( $show_avatar ) {
+			$html .= '<div style="margin-bottom: 20px;">' . $this->render_avatar( $author_id, $name, $size, $border_color ) . '</div>';
+		}
+
+		$html .= '<div class="am-author-info" style="width: 100%;">';
+		$html .= '<h3 class="am-author-name" style="margin: 0 0 12px 0; font-size: 22px; font-weight: 700; letter-spacing: 0.3px; color: ' . esc_attr( $text_color ) . ';">' . esc_html( $name ) . '</h3>';
+
+		// Expertise badges
+		if ( $show_badges && ! empty( $badges_array ) ) {
+			$html .= '<div style="display: flex; justify-content: center; margin-bottom: 15px;">' . $this->render_badges( $badges_array, $border_color ) . '</div>';
+		}
+
+		if ( ! empty( $bio ) ) {
+			$html .= '<div class="am-author-bio" style="margin-bottom: 15px; color: ' . esc_attr( $text_color ) . '; line-height: 1.6; opacity: 0.9;">' . wp_kses_post( wpautop( $bio ) ) . '</div>';
+		}
+
+		// Social links
+		if ( $show_social && ( $twitter || $linkedin || $facebook || $instagram || $website ) ) {
+			$html .= '<div style="display: flex; justify-content: center;">' . $this->render_social_links( $data ) . '</div>';
+		}
+
+		$html .= '</div>'; // .am-author-info
+		$html .= '</div>'; // .am-author-content
+		$html .= '</div>'; // .am-author-box
+
+		return $html;
+	}
+
+	/**
+	 * Render card layout (centered, compact).
+	 *
+	 * @param array $data Author data and settings.
+	 * @return string HTML output.
+	 */
+	private function render_card_layout( $data ) {
+		extract( $data );
+
+		$container_styles = sprintf(
+			'background-color: %s; color: %s; border: %dpx solid %s; border-radius: %dpx; padding: %dpx; margin: 30px auto; max-width: 600px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);',
+			$bg_color,
+			$text_color,
+			$border_width,
+			$border_color,
+			$border_radius,
+			$padding
+		);
+
+		$box_class = 'am-author-box am-author-box-' . esc_attr( $size ) . ' am-author-box-card';
+		$html = '<div class="' . esc_attr( $box_class ) . '" style="' . esc_attr( $container_styles ) . '">';
+
+		// Title/Prefix
+		if ( ! empty( $title_prefix ) ) {
+			$html .= '<h4 class="am-author-title" style="margin: 0 0 20px 0; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: ' . esc_attr( $border_color ) . '; opacity: 0.8; text-align: center;">' . esc_html( $title_prefix ) . '</h4>';
+		}
+
+		$html .= '<div class="am-author-content" style="display: flex; flex-direction: column; align-items: center; text-align: center;">';
+
+		// Avatar
+		if ( $show_avatar ) {
+			$html .= '<div style="margin-bottom: 20px;">' . $this->render_avatar( $author_id, $name, $size, $border_color, true ) . '</div>';
+		}
+
+		$html .= '<div class="am-author-info" style="width: 100%;">';
+		$html .= '<h3 class="am-author-name" style="margin: 0 0 12px 0; font-size: 24px; font-weight: 700; letter-spacing: 0.3px; color: ' . esc_attr( $text_color ) . ';">' . esc_html( $name ) . '</h3>';
+
+		// Expertise badges
+		if ( $show_badges && ! empty( $badges_array ) ) {
+			$html .= '<div style="display: flex; justify-content: center; margin-bottom: 15px;">' . $this->render_badges( $badges_array, $border_color ) . '</div>';
+		}
+
+		if ( ! empty( $bio ) ) {
+			$html .= '<div class="am-author-bio" style="margin-bottom: 20px; color: ' . esc_attr( $text_color ) . '; line-height: 1.6; opacity: 0.9;">' . wp_kses_post( wpautop( $bio ) ) . '</div>';
+		}
+
+		// Social links
+		if ( $show_social && ( $twitter || $linkedin || $facebook || $instagram || $website ) ) {
+			$html .= '<div style="display: flex; justify-content: center;">' . $this->render_social_links( $data ) . '</div>';
+		}
+
+		$html .= '</div>'; // .am-author-info
+		$html .= '</div>'; // .am-author-content
+		$html .= '</div>'; // .am-author-box
+
+		return $html;
+	}
+
+	/**
+	 * Render avatar HTML.
+	 *
+	 * @param int    $author_id Author ID.
+	 * @param string $name Author name.
+	 * @param string $size Size (small, medium, large).
+	 * @param string $border_color Border color.
+	 * @param bool   $larger Make avatar larger for card layout.
+	 * @return string Avatar HTML.
+	 */
+	private function render_avatar( $author_id, $name, $size, $border_color, $larger = false ) {
+		$avatar_size = 'large' === $size ? 128 : ( 'small' === $size ? 48 : 80 );
+		if ( $larger ) {
+			$avatar_size = (int) ( $avatar_size * 1.25 );
+		}
+
+		$avatar_border = sprintf( 'border-radius: 50%%; border: 3px solid %s; box-shadow: 0 2px 6px rgba(0,0,0,0.08);', $border_color );
+
+		$html = '<div class="am-author-avatar" style="flex-shrink: 0;">';
+
+		// Check for custom avatar from media library.
+		$custom_avatar_id = get_user_meta( $author_id, 'am_custom_avatar', true );
+		if ( $custom_avatar_id ) {
+			$avatar_url = wp_get_attachment_image_url( $custom_avatar_id, array( $avatar_size, $avatar_size ) );
+			if ( $avatar_url ) {
+				$html .= '<img src="' . esc_url( $avatar_url ) . '" alt="' . esc_attr( $name ) . '" width="' . esc_attr( $avatar_size ) . '" height="' . esc_attr( $avatar_size ) . '" style="' . esc_attr( $avatar_border ) . '">';
+			} else {
+				$html .= get_avatar( $author_id, $avatar_size, '', $name, array( 'style' => $avatar_border ) );
+			}
+		} else {
+			$html .= get_avatar( $author_id, $avatar_size, '', $name, array( 'style' => $avatar_border ) );
+		}
+
+		$html .= '</div>';
+
+		return $html;
+	}
+
+	/**
+	 * Render expertise badges HTML.
+	 *
+	 * @param array  $badges_array Array of badge labels.
+	 * @param string $border_color Border color.
+	 * @return string Badges HTML.
+	 */
+	private function render_badges( $badges_array, $border_color ) {
+		$html = '<div class="am-author-badges" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">';
+
+		foreach ( $badges_array as $badge ) {
+			if ( empty( $badge ) ) {
+				continue;
+			}
+			$html .= '<span style="background-color: ' . esc_attr( $border_color ) . '; color: #fff; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; letter-spacing: 0.3px;">' . esc_html( $badge ) . '</span>';
+		}
+
+		$html .= '</div>';
+
+		return $html;
+	}
+
+	/**
+	 * Render social links HTML.
+	 *
+	 * @param array $data Author data and settings.
+	 * @return string Social links HTML.
+	 */
+	private function render_social_links( $data ) {
+		extract( $data );
+
+		$button_color = $border_color;
+		$button_hover = $this->darken_color( $border_color, 15 );
+
+		$button_style = sprintf(
+			'color: #fff; background: %s; padding: 6px 14px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: 600; transition: all 0.3s ease; display: inline-block; box-shadow: 0 2px 5px rgba(0,0,0,0.1);',
+			$button_color
+		);
+
+		$html = '<div class="am-author-social" style="display: flex; gap: 12px; flex-wrap: wrap;">';
+
+		if ( $website ) {
+			$html .= '<a href="' . esc_url( $website ) . '" target="_blank" rel="noopener" style="' . esc_attr( $button_style ) . '" onmouseover="this.style.background=\'' . esc_attr( $button_hover ) . '\'; this.style.transform=\'translateY(-2px)\'; this.style.boxShadow=\'0 4px 8px rgba(0,0,0,0.15)\'" onmouseout="this.style.background=\'' . esc_attr( $button_color ) . '\'; this.style.transform=\'translateY(0)\'; this.style.boxShadow=\'0 2px 5px rgba(0,0,0,0.1)\'">' . esc_html__( 'Website', 'admin-manager' ) . '</a>';
+		}
+
+		if ( $twitter ) {
+			$html .= '<a href="https://twitter.com/' . esc_attr( $twitter ) . '" target="_blank" rel="noopener" style="' . esc_attr( $button_style ) . '" onmouseover="this.style.background=\'' . esc_attr( $button_hover ) . '\'; this.style.transform=\'translateY(-2px)\'; this.style.boxShadow=\'0 4px 8px rgba(0,0,0,0.15)\'" onmouseout="this.style.background=\'' . esc_attr( $button_color ) . '\'; this.style.transform=\'translateY(0)\'; this.style.boxShadow=\'0 2px 5px rgba(0,0,0,0.1)\'">' . esc_html__( 'Twitter', 'admin-manager' ) . '</a>';
+		}
+
+		if ( $linkedin ) {
+			$html .= '<a href="' . esc_url( $linkedin ) . '" target="_blank" rel="noopener" style="' . esc_attr( $button_style ) . '" onmouseover="this.style.background=\'' . esc_attr( $button_hover ) . '\'; this.style.transform=\'translateY(-2px)\'; this.style.boxShadow=\'0 4px 8px rgba(0,0,0,0.15)\'" onmouseout="this.style.background=\'' . esc_attr( $button_color ) . '\'; this.style.transform=\'translateY(0)\'; this.style.boxShadow=\'0 2px 5px rgba(0,0,0,0.1)\'">' . esc_html__( 'LinkedIn', 'admin-manager' ) . '</a>';
+		}
+
+		if ( $facebook ) {
+			$html .= '<a href="' . esc_url( $facebook ) . '" target="_blank" rel="noopener" style="' . esc_attr( $button_style ) . '" onmouseover="this.style.background=\'' . esc_attr( $button_hover ) . '\'; this.style.transform=\'translateY(-2px)\'; this.style.boxShadow=\'0 4px 8px rgba(0,0,0,0.15)\'" onmouseout="this.style.background=\'' . esc_attr( $button_color ) . '\'; this.style.transform=\'translateY(0)\'; this.style.boxShadow=\'0 2px 5px rgba(0,0,0,0.1)\'">' . esc_html__( 'Facebook', 'admin-manager' ) . '</a>';
+		}
+
+		if ( $instagram ) {
+			$html .= '<a href="' . esc_url( $instagram ) . '" target="_blank" rel="noopener" style="' . esc_attr( $button_style ) . '" onmouseover="this.style.background=\'' . esc_attr( $button_hover ) . '\'; this.style.transform=\'translateY(-2px)\'; this.style.boxShadow=\'0 4px 8px rgba(0,0,0,0.15)\'" onmouseout="this.style.background=\'' . esc_attr( $button_color ) . '\'; this.style.transform=\'translateY(0)\'; this.style.boxShadow=\'0 2px 5px rgba(0,0,0,0.1)\'">' . esc_html__( 'Instagram', 'admin-manager' ) . '</a>';
+		}
+
+		$html .= '</div>';
+
+		return $html;
 	}
 
 	/**
@@ -396,6 +632,16 @@ class AM_Author_Box {
 					<p class="description"><?php esc_html_e( 'Enter your Instagram profile URL.', 'admin-manager' ); ?></p>
 				</td>
 			</tr>
+
+			<tr>
+				<th>
+					<label for="am_expertise_badges"><?php esc_html_e( 'Expertise Badges', 'admin-manager' ); ?></label>
+				</th>
+				<td>
+					<input type="text" name="am_expertise_badges" id="am_expertise_badges" value="<?php echo esc_attr( get_user_meta( $user->ID, 'am_expertise_badges', true ) ); ?>" class="regular-text" placeholder="WordPress Expert, Designer, Developer">
+					<p class="description"><?php esc_html_e( 'Enter comma-separated expertise tags (e.g., "WordPress Expert, Designer, SEO Specialist").', 'admin-manager' ); ?></p>
+				</td>
+			</tr>
 		</table>
 		<?php
 	}
@@ -433,6 +679,10 @@ class AM_Author_Box {
 
 		if ( isset( $_POST['am_instagram'] ) ) {
 			update_user_meta( $user_id, 'am_instagram', esc_url_raw( $_POST['am_instagram'] ) );
+		}
+
+		if ( isset( $_POST['am_expertise_badges'] ) ) {
+			update_user_meta( $user_id, 'am_expertise_badges', sanitize_text_field( $_POST['am_expertise_badges'] ) );
 		}
 	}
 }

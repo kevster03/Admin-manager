@@ -14,18 +14,21 @@ if ( ! defined( 'ABSPATH' ) ) {
 if ( isset( $_POST['am_save_reading_time'] ) && am_verify_nonce( 'am_reading_time_nonce', 'am_save_reading_time' ) ) {
 	if ( current_user_can( 'manage_options' ) ) {
 		$settings = array(
-			'enabled_post_types' => isset( $_POST['enabled_post_types'] ) && is_array( $_POST['enabled_post_types'] )
+			'enabled_post_types'   => isset( $_POST['enabled_post_types'] ) && is_array( $_POST['enabled_post_types'] )
 				? array_map( 'sanitize_text_field', $_POST['enabled_post_types'] )
 				: array(),
-			'words_per_minute'   => isset( $_POST['words_per_minute'] ) ? intval( $_POST['words_per_minute'] ) : 200,
-			'position'           => isset( $_POST['position'] ) ? sanitize_text_field( $_POST['position'] ) : 'before',
-			'bg_color'           => isset( $_POST['bg_color'] ) ? sanitize_hex_color( $_POST['bg_color'] ) : '#f5f5f5',
-			'text_color'         => isset( $_POST['text_color'] ) ? sanitize_hex_color( $_POST['text_color'] ) : '#333333',
-			'border_color'       => isset( $_POST['border_color'] ) ? sanitize_hex_color( $_POST['border_color'] ) : '#dddddd',
-			'border_width'       => isset( $_POST['border_width'] ) ? absint( $_POST['border_width'] ) : 1,
-			'border_radius'      => isset( $_POST['border_radius'] ) ? absint( $_POST['border_radius'] ) : 4,
-			'padding'            => isset( $_POST['padding'] ) ? absint( $_POST['padding'] ) : 10,
-			'show_icon'          => ! empty( $_POST['show_icon'] ),
+			'words_per_minute'     => isset( $_POST['words_per_minute'] ) ? intval( $_POST['words_per_minute'] ) : 200,
+			'position'             => isset( $_POST['position'] ) ? sanitize_text_field( $_POST['position'] ) : 'before',
+			'bg_color'             => isset( $_POST['bg_color'] ) ? sanitize_hex_color( $_POST['bg_color'] ) : '#f5f5f5',
+			'text_color'           => isset( $_POST['text_color'] ) ? sanitize_hex_color( $_POST['text_color'] ) : '#333333',
+			'border_color'         => isset( $_POST['border_color'] ) ? sanitize_hex_color( $_POST['border_color'] ) : '#dddddd',
+			'border_width'         => isset( $_POST['border_width'] ) ? absint( $_POST['border_width'] ) : 1,
+			'border_radius'        => isset( $_POST['border_radius'] ) ? absint( $_POST['border_radius'] ) : 4,
+			'padding'              => isset( $_POST['padding'] ) ? absint( $_POST['padding'] ) : 10,
+			'show_icon'            => ! empty( $_POST['show_icon'] ),
+			'show_progress_bar'    => ! empty( $_POST['show_progress_bar'] ),
+			'progress_bar_color'   => isset( $_POST['progress_bar_color'] ) ? sanitize_hex_color( $_POST['progress_bar_color'] ) : '#0073aa',
+			'progress_bar_height'  => isset( $_POST['progress_bar_height'] ) ? absint( $_POST['progress_bar_height'] ) : 4,
 		);
 
 		foreach ( $settings as $key => $value ) {
@@ -48,6 +51,9 @@ $border_width = isset( $settings['border_width'] ) ? $settings['border_width'] :
 $border_radius = isset( $settings['border_radius'] ) ? $settings['border_radius'] : 4;
 $padding = isset( $settings['padding'] ) ? $settings['padding'] : 10;
 $show_icon = ! empty( $settings['show_icon'] );
+$show_progress_bar = ! empty( $settings['show_progress_bar'] );
+$progress_bar_color = isset( $settings['progress_bar_color'] ) ? $settings['progress_bar_color'] : '#0073aa';
+$progress_bar_height = isset( $settings['progress_bar_height'] ) ? $settings['progress_bar_height'] : 4;
 
 // Get all post types.
 $post_types = get_post_types( array( 'public' => true ), 'objects' );
@@ -233,10 +239,53 @@ $post_types = get_post_types( array( 'public' => true ), 'objects' );
 					<?php esc_html_e( 'Display Options', 'admin-manager' ); ?>
 				</th>
 				<td>
-					<label>
+					<label style="display: block; margin-bottom: 8px;">
 						<input type="checkbox" name="show_icon" value="1" <?php checked( $show_icon ); ?>>
 						<?php esc_html_e( 'Show clock icon', 'admin-manager' ); ?>
 					</label>
+					<label style="display: block; margin-bottom: 8px;">
+						<input type="checkbox" name="show_progress_bar" value="1" <?php checked( $show_progress_bar ); ?>>
+						<?php esc_html_e( 'Show reading progress bar (at top of page)', 'admin-manager' ); ?>
+					</label>
+				</td>
+			</tr>
+		</table>
+
+		<h2><?php esc_html_e( 'Progress Bar Settings', 'admin-manager' ); ?></h2>
+
+		<table class="form-table">
+			<tr>
+				<th scope="row">
+					<label for="progress_bar_color"><?php esc_html_e( 'Progress Bar Color', 'admin-manager' ); ?></label>
+				</th>
+				<td>
+					<input
+						type="text"
+						name="progress_bar_color"
+						id="progress_bar_color"
+						value="<?php echo esc_attr( $progress_bar_color ); ?>"
+						class="am-color-picker"
+					>
+				</td>
+			</tr>
+
+			<tr>
+				<th scope="row">
+					<label for="progress_bar_height"><?php esc_html_e( 'Progress Bar Height (px)', 'admin-manager' ); ?></label>
+				</th>
+				<td>
+					<input
+						type="number"
+						name="progress_bar_height"
+						id="progress_bar_height"
+						value="<?php echo esc_attr( $progress_bar_height ); ?>"
+						min="2"
+						max="10"
+						class="small-text"
+					>
+					<p class="description">
+						<?php esc_html_e( 'Height of the progress bar in pixels.', 'admin-manager' ); ?>
+					</p>
 				</td>
 			</tr>
 		</table>

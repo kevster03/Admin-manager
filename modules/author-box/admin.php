@@ -18,8 +18,10 @@ if ( isset( $_POST['am_save_author_box'] ) && am_verify_nonce( 'am_author_box_no
 				? array_map( 'sanitize_text_field', $_POST['enabled_post_types'] )
 				: array(),
 			'position'           => isset( $_POST['position'] ) ? sanitize_text_field( $_POST['position'] ) : 'after',
+			'layout'             => isset( $_POST['layout'] ) ? sanitize_text_field( $_POST['layout'] ) : 'horizontal',
 			'show_avatar'        => isset( $_POST['show_avatar'] ) ? true : false,
 			'show_social'        => isset( $_POST['show_social'] ) ? true : false,
+			'show_badges'        => isset( $_POST['show_badges'] ) ? true : false,
 			'size'               => isset( $_POST['size'] ) ? sanitize_text_field( $_POST['size'] ) : 'medium',
 			'title_prefix'       => isset( $_POST['title_prefix'] ) ? sanitize_text_field( $_POST['title_prefix'] ) : __( 'About the Author', 'admin-manager' ),
 			'bg_color'           => isset( $_POST['bg_color'] ) ? sanitize_hex_color( $_POST['bg_color'] ) : '#f9f9f9',
@@ -42,8 +44,10 @@ if ( isset( $_POST['am_save_author_box'] ) && am_verify_nonce( 'am_author_box_no
 $settings = am_get_module_setting( 'author-box' );
 $enabled_post_types = isset( $settings['enabled_post_types'] ) ? $settings['enabled_post_types'] : array();
 $position = isset( $settings['position'] ) ? $settings['position'] : 'after';
+$layout = isset( $settings['layout'] ) ? $settings['layout'] : 'horizontal';
 $show_avatar = isset( $settings['show_avatar'] ) ? $settings['show_avatar'] : true;
 $show_social = isset( $settings['show_social'] ) ? $settings['show_social'] : true;
+$show_badges = isset( $settings['show_badges'] ) ? $settings['show_badges'] : true;
 $size = isset( $settings['size'] ) ? $settings['size'] : 'medium';
 $title_prefix = isset( $settings['title_prefix'] ) ? $settings['title_prefix'] : __( 'About the Author', 'admin-manager' );
 $bg_color = isset( $settings['bg_color'] ) ? $settings['bg_color'] : '#f9f9f9';
@@ -113,6 +117,28 @@ $post_types = get_post_types( array( 'public' => true ), 'objects' );
 
 			<tr>
 				<th scope="row">
+					<label for="layout"><?php esc_html_e( 'Layout Template', 'admin-manager' ); ?></label>
+				</th>
+				<td>
+					<select name="layout" id="layout">
+						<option value="horizontal" <?php selected( $layout, 'horizontal' ); ?>>
+							<?php esc_html_e( 'Horizontal (Default)', 'admin-manager' ); ?>
+						</option>
+						<option value="vertical" <?php selected( $layout, 'vertical' ); ?>>
+							<?php esc_html_e( 'Vertical (Avatar on Top)', 'admin-manager' ); ?>
+						</option>
+						<option value="card" <?php selected( $layout, 'card' ); ?>>
+							<?php esc_html_e( 'Card (Centered)', 'admin-manager' ); ?>
+						</option>
+					</select>
+					<p class="description">
+						<?php esc_html_e( 'Choose the visual layout style for the author box.', 'admin-manager' ); ?>
+					</p>
+				</td>
+			</tr>
+
+			<tr>
+				<th scope="row">
 					<label for="title_prefix"><?php esc_html_e( 'Title/Prefix', 'admin-manager' ); ?></label>
 				</th>
 				<td>
@@ -142,6 +168,10 @@ $post_types = get_post_types( array( 'public' => true ), 'objects' );
 					<label style="display: block; margin-bottom: 8px;">
 						<input type="checkbox" name="show_social" value="1" <?php checked( $show_social ); ?>>
 						<?php esc_html_e( 'Show Social Links', 'admin-manager' ); ?>
+					</label>
+					<label style="display: block; margin-bottom: 8px;">
+						<input type="checkbox" name="show_badges" value="1" <?php checked( $show_badges ); ?>>
+						<?php esc_html_e( 'Show Expertise Badges', 'admin-manager' ); ?>
 					</label>
 				</td>
 			</tr>

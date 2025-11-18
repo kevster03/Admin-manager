@@ -22,6 +22,8 @@ class AM_Reading_Time {
 	 */
 	public function __construct() {
 		add_filter( 'the_content', array( $this, 'auto_insert_reading_time' ), 1 );
+		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_frontend_assets' ) );
+		add_action( 'wp_footer', array( $this, 'render_progress_bar' ) );
 	}
 
 	/**
@@ -137,6 +139,82 @@ class AM_Reading_Time {
 
 		/* translators: %d: Reading time in minutes */
 		return sprintf( _n( '%d min read', '%d min read', $minutes, 'admin-manager' ), $minutes );
+	}
+
+	/**
+	 * Enqueue frontend assets for progress bar.
+	 */
+	public function enqueue_frontend_assets() {
+		if ( ! is_singular() ) {
+			return;
+		}
+
+		$settings = am_get_module_setting( 'reading-time' );
+		$show_progress_bar = ! empty( $settings['show_progress_bar'] );
+		$enabled_post_types = isset( $settings['enabled_post_types'] ) ? $settings['enabled_post_types'] : array();
+
+		if ( ! $show_progress_bar || ! in_array( get_post_type(), $enabled_post_types, true ) ) {
+			return;
+		}
+
+		$progress_bar_color = isset( $settings['progress_bar_color'] ) ? sanitize_hex_color( $settings['progress_bar_color'] ) : '#0073aa';
+		$progress_bar_height = isset( $settings['progress_bar_height'] ) ? absint( $settings['progress_bar_height'] ) : 4;
+
+		// Inline CSS for progress bar.
+		$custom_css = "
+			#am-reading-progress-bar {
+				position: fixed;
+				top: 0;
+				left: 0;
+				width: 0%;
+				height: {$progress_bar_height}px;
+				background-color: {$progress_bar_color};
+				z-index: 9999;
+				transition: width 0.2s ease-out;
+			}
+		";
+		wp_add_inline_style( 'am-admin', $custom_css );
+
+		// Inline JavaScript for progress bar.
+		$custom_js = "
+		(function() {
+			'use strict';
+
+			function updateProgressBar() {
+				var winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+				var height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+				var scrolled = (winScroll / height) * 100;
+				var progressBar = document.getElementById('am-reading-progress-bar');
+				if (progressBar) {
+					progressBar.style.width = scrolled + '%';
+				}
+			}
+
+			window.addEventListener('scroll', updateProgressBar);
+			window.addEventListener('resize', updateProgressBar);
+			updateProgressBar();
+		})();
+		";
+		wp_add_inline_script( 'am-admin', $custom_js );
+	}
+
+	/**
+	 * Render progress bar HTML in footer.
+	 */
+	public function render_progress_bar() {
+		if ( ! is_singular() ) {
+			return;
+		}
+
+		$settings = am_get_module_setting( 'reading-time' );
+		$show_progress_bar = ! empty( $settings['show_progress_bar'] );
+		$enabled_post_types = isset( $settings['enabled_post_types'] ) ? $settings['enabled_post_types'] : array();
+
+		if ( ! $show_progress_bar || ! in_array( get_post_type(), $enabled_post_types, true ) ) {
+			return;
+		}
+
+		echo '<div id="am-reading-progress-bar"></div>';
 	}
 
 	/**
