@@ -1,0 +1,134 @@
+/**
+ * Media Folders - Admin Styles
+ *
+ * @package AdminManager
+ */
+
+/* Custom colors: #d30038, #f2dec1, #c6e0f2, #e0c8ff, #2f010d */
+
+#am-create-folder-btn {
+	margin-right: 10px;
+	background: linear-gradient(135deg, #d30038 0%, #a80028 100%) !important;
+	border-color: #d30038 !important;
+	color: #fff !important;
+	font-weight: 600;
+	text-shadow: none;
+	box-shadow: 0 2px 4px rgba(211, 0, 56, 0.2);
+	transition: all 0.3s ease;
+}
+
+#am-create-folder-btn:hover {
+	background: linear-gradient(135deg, #a80028 0%, #d30038 100%) !important;
+	box-shadow: 0 4px 8px rgba(211, 0, 56, 0.3);
+	transform: translateY(-1px);
+}
+
+#am-create-folder-btn:active {
+	transform: translateY(0);
+	box-shadow: 0 2px 4px rgba(211, 0, 56, 0.2);
+}
+
+#am-create-folder-btn:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+	transform: none !important;
+}
+
+/* Folder filter dropdown */
+select#am_media_folder {
+	border: 2px solid #d30038;
+	border-radius: 4px;
+	padding: 6px 12px;
+	font-weight: 500;
+	background: linear-gradient(135deg, #f2dec1 0%, #e0c8ff 100%);
+	color: #2f010d;
+	transition: all 0.3s ease;
+}
+
+select#am_media_folder:hover {
+	box-shadow: 0 2px 6px rgba(211, 0, 56, 0.2);
+}
+
+select#am_media_folder:focus {
+	outline: none;
+	border-color: #a80028;
+	box-shadow: 0 0 0 3px rgba(211, 0, 56, 0.1);
+}
+
+.am-folder-sidebar {
+	background: linear-gradient(135deg, #f2dec1 0%, #e0c8ff 100%);
+	border: 2px solid #d30038;
+	border-radius: 8px;
+	padding: 20px;
+	margin-bottom: 20px;
+	box-shadow: 0 4px 12px rgba(47, 1, 13, 0.1);
+}
+
+.am-folder-list {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+}
+
+.am-folder-list li {
+	padding: 10px 12px;
+	border-bottom: 1px solid rgba(211, 0, 56, 0.1);
+	cursor: pointer;
+	transition: all 0.2s ease;
+	border-radius: 4px;
+	margin-bottom: 4px;
+	color: #2f010d;
+	font-weight: 500;
+}
+
+.am-folder-list li:hover {
+	background: rgba(211, 0, 56, 0.05);
+	transform: translateX(4px);
+	border-left: 3px solid #d30038;
+	padding-left: 9px;
+}
+
+.am-folder-list li.active {
+	background: #d30038;
+	color: #fff;
+	border-left: 3px solid #2f010d;
+	padding-left: 9px;
+	box-shadow: 0 2px 6px rgba(211, 0, 56, 0.3);
+}
+
+.am-folder-actions {
+	float: right;
+	opacity: 0;
+	transition: opacity 0.2s ease;
+}
+
+.am-folder-list li:hover .am-folder-actions {
+	opacity: 1;
+}
+
+.am-folder-actions button {
+	background: none;
+	border: none;
+	padding: 4px 8px;
+	margin-left: 5px;
+	cursor: pointer;
+	color: #d30038;
+	font-size: 12px;
+	font-weight: 600;
+	border-radius: 3px;
+	transition: all 0.2s ease;
+}
+
+.am-folder-actions button:hover {
+	background: rgba(211, 0, 56, 0.1);
+	color: #a80028;
+}
+
+.am-folder-list li.active .am-folder-actions button {
+	color: #f2dec1;
+}
+
+.am-folder-list li.active .am-folder-actions button:hover {
+	background: rgba(255, 255, 255, 0.2);
+	color: #fff;
+}
