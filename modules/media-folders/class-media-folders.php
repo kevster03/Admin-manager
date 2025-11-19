@@ -38,8 +38,11 @@ class AM_Media_Folders {
 	public function __construct() {
 		add_action( 'init', array( $this, 'register_taxonomy' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
-		add_filter( 'ajax_query_attachments_args', array( $this, 'filter_media_by_folder' ) );
-		add_filter( 'pre_get_posts', array( $this, 'filter_media_grid_by_folder' ) );
+
+		// Filtering - Use different hooks for grid view (AJAX) and list view (SQL)
+		add_filter( 'ajax_query_attachments_args', array( $this, 'filter_media_ajax' ), 10, 1 );
+		add_filter( 'posts_clauses', array( $this, 'filter_media_list_view' ), 10, 2 );
+
 		add_action( 'wp_ajax_am_create_folder', array( $this, 'ajax_create_folder' ) );
 		add_action( 'wp_ajax_am_rename_folder', array( $this, 'ajax_rename_folder' ) );
 		add_action( 'wp_ajax_am_delete_folder', array( $this, 'ajax_delete_folder' ) );
@@ -255,64 +258,82 @@ class AM_Media_Folders {
 	}
 
 	/**
-	 * Filter media library by folder (AJAX/Modal view).
+	 * Filter media library for AJAX/Grid/Modal view.
+	 * This hook is used by WordPress media grid view and media modals.
 	 *
 	 * @param array $query Query args.
 	 * @return array Modified query args.
 	 */
-	public function filter_media_by_folder( $query ) {
+	public function filter_media_ajax( $query ) {
+		$folder_id = null;
+
+		// Check both possible sources for folder parameter
 		if ( isset( $_REQUEST['query']['media_folder'] ) ) {
 			$folder_id = intval( $_REQUEST['query']['media_folder'] );
+		} elseif ( isset( $_GET['media_folder'] ) ) {
+			$folder_id = intval( $_GET['media_folder'] );
+		}
 
-			if ( $folder_id > 0 ) {
-				$query['tax_query'] = array(
-					array(
-						'taxonomy' => self::TAXONOMY,
-						'field'    => 'term_id',
-						'terms'    => $folder_id,
-					),
-				);
-			} elseif ( -1 === $folder_id ) {
-				// Uncategorized - media without any folder
-				$query['tax_query'] = array(
-					array(
-						'taxonomy' => self::TAXONOMY,
-						'operator' => 'NOT EXISTS',
-					),
-				);
-			}
+		if ( null === $folder_id ) {
+			return $query;
+		}
+
+		self::debug_log( "[AJAX] Filter called with folder ID: {$folder_id}", 'info', array(
+			'folder_id'      => $folder_id,
+			'REQUEST_query'  => isset( $_REQUEST['query'] ) ? $_REQUEST['query'] : null,
+			'GET_params'     => $_GET,
+		) );
+
+		if ( $folder_id > 0 ) {
+			// Specific folder - show only media in this folder
+			$query['tax_query'] = array(
+				array(
+					'taxonomy' => self::TAXONOMY,
+					'field'    => 'term_id',
+					'terms'    => $folder_id,
+				),
+			);
+			self::debug_log( "[AJAX] Filtering by folder {$folder_id}", 'success', array(
+				'tax_query' => $query['tax_query'],
+			) );
+		} elseif ( -1 === $folder_id ) {
+			// Uncategorized - media without any folder
+			$query['tax_query'] = array(
+				array(
+					'taxonomy' => self::TAXONOMY,
+					'operator' => 'NOT EXISTS',
+				),
+			);
+			self::debug_log( "[AJAX] Filtering uncategorized media", 'success' );
 		}
 
 		return $query;
 	}
 
 	/**
-	 * Filter media library by folder (Grid view).
+	 * Filter media library for list view using SQL clauses.
+	 * This directly modifies the SQL query for reliable filtering.
 	 *
+	 * @param array    $clauses SQL clauses.
 	 * @param WP_Query $query The WP_Query instance.
+	 * @return array Modified SQL clauses.
 	 */
-	public function filter_media_grid_by_folder( $query ) {
-		global $pagenow;
+	public function filter_media_list_view( $clauses, $query ) {
+		global $wpdb, $pagenow;
 
-		// Only run on upload.php in admin
+		// Only run on upload.php in admin for attachment queries
 		if ( ! is_admin() || 'upload.php' !== $pagenow ) {
-			return;
+			return $clauses;
+		}
+
+		// Must be an attachment query
+		if ( 'attachment' !== $query->get( 'post_type' ) ) {
+			return $clauses;
 		}
 
 		// Check if media_folder parameter is set
 		if ( ! isset( $_GET['media_folder'] ) ) {
-			return;
-		}
-
-		// Check if this is an attachment query (but don't require it to be set yet)
-		$post_type = $query->get( 'post_type' );
-		if ( $post_type && 'attachment' !== $post_type ) {
-			return;
-		}
-
-		// Force post_type to attachment if not set
-		if ( ! $post_type ) {
-			$query->set( 'post_type', 'attachment' );
+			return $clauses;
 		}
 
 		$folder_id = intval( $_GET['media_folder'] );
@@ -321,51 +342,40 @@ class AM_Media_Folders {
 		$folder = get_term( $folder_id, self::TAXONOMY );
 		$folder_name = $folder && ! is_wp_error( $folder ) ? $folder->name : 'Unknown';
 
-		// Get all attachments in this folder
-		$attachments_in_folder = get_objects_in_term( $folder_id, self::TAXONOMY );
-
-		self::debug_log( "filter_media_grid_by_folder: FILTERING BY FOLDER \"{$folder_name}\" (ID: {$folder_id})", 'info', array(
-			'folder_id'             => $folder_id,
-			'folder_name'           => $folder_name,
-			'pagenow'               => $pagenow,
-			'URL'                   => isset( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : '',
-			'attachments_in_folder' => is_array( $attachments_in_folder ) ? $attachments_in_folder : array(),
-			'attachment_count'      => is_array( $attachments_in_folder ) ? count( $attachments_in_folder ) : 0,
-			'query_vars'            => $query->query_vars,
+		self::debug_log( "[SQL] List view filter called for folder: {$folder_name} (ID: {$folder_id})", 'info', array(
+			'folder_id'   => $folder_id,
+			'folder_name' => $folder_name,
+			'pagenow'     => $pagenow,
+			'URL'         => isset( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : '',
 		) );
 
 		if ( $folder_id > 0 ) {
-			// Show media in specific folder
-			$tax_query = array(
-				array(
-					'taxonomy' => self::TAXONOMY,
-					'field'    => 'term_id',
-					'terms'    => $folder_id,
-				),
+			// Show media in specific folder - JOIN with term relationships table
+			$clauses['join'] .= " INNER JOIN {$wpdb->term_relationships} AS tr ON {$wpdb->posts}.ID = tr.object_id";
+			$clauses['join'] .= " INNER JOIN {$wpdb->term_taxonomy} AS tt ON tr.term_taxonomy_id = tt.term_taxonomy_id";
+
+			$clauses['where'] .= $wpdb->prepare(
+				" AND tt.taxonomy = %s AND tt.term_id = %d",
+				self::TAXONOMY,
+				$folder_id
 			);
 
-			$query->set( 'tax_query', $tax_query );
-
-			self::debug_log( "filter_media_grid_by_folder: Applied tax_query filter", 'success', array(
-				'tax_query'        => $tax_query,
-				'expected_results' => is_array( $attachments_in_folder ) ? count( $attachments_in_folder ) : 0,
+			self::debug_log( "[SQL] Applied JOIN filter for folder {$folder_id}", 'success', array(
+				'join_added'  => true,
+				'where_added' => true,
 			) );
+
 		} elseif ( -1 === $folder_id ) {
-			// Show uncategorized media (not in any folder)
-			$query->set(
-				'tax_query',
-				array(
-					array(
-						'taxonomy' => self::TAXONOMY,
-						'operator' => 'NOT EXISTS',
-					),
-				)
-			);
-			self::debug_log( "filter_media_grid_by_folder: Applied uncategorized filter", 'success' );
-		} elseif ( 0 === $folder_id ) {
-			// Show all media - no filter needed
-			self::debug_log( "filter_media_grid_by_folder: Showing all media (no filter)", 'info' );
+			// Show uncategorized media - LEFT JOIN and check for NULL
+			$clauses['join'] .= " LEFT JOIN {$wpdb->term_relationships} AS tr ON ({$wpdb->posts}.ID = tr.object_id)";
+			$clauses['join'] .= " LEFT JOIN {$wpdb->term_taxonomy} AS tt ON (tr.term_taxonomy_id = tt.term_taxonomy_id AND tt.taxonomy = '" . self::TAXONOMY . "')";
+
+			$clauses['where'] .= " AND tt.term_taxonomy_id IS NULL";
+
+			self::debug_log( "[SQL] Applied LEFT JOIN filter for uncategorized media", 'success' );
 		}
+
+		return $clauses;
 	}
 
 	/**
