@@ -628,10 +628,12 @@
 			// For grid view (upload.php)
 			if ($('.upload-php').length) {
 				const url = new URL(window.location.href);
-				if (folderId > 0) {
-					url.searchParams.set('media_folder', folderId);
-				} else {
+				if (folderId === 0) {
+					// All Media - remove filter
 					url.searchParams.delete('media_folder');
+				} else {
+					// Specific folder or Uncategorized (-1)
+					url.searchParams.set('media_folder', folderId);
 				}
 				window.location.href = url.toString();
 			}
