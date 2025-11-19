@@ -468,6 +468,7 @@ class AM_Custom_Login {
 		$settings = am_get_module_setting( 'custom-login' );
 		$hide_back_link = isset( $settings['hide_back_link'] ) ? $settings['hide_back_link'] : false;
 		$hide_lost_password = isset( $settings['hide_lost_password'] ) ? $settings['hide_lost_password'] : false;
+		$hide_register = isset( $settings['hide_register'] ) ? $settings['hide_register'] : false;
 
 		?>
 		<style>
@@ -482,7 +483,30 @@ class AM_Custom_Login {
 					display: none !important;
 				}
 			<?php endif; ?>
+
+			<?php if ( $hide_register && ! $hide_lost_password ) : ?>
+				/* Hide only register link, keep lost password */
+				#nav a[href*="wp-login.php?action=register"],
+				#nav a[href*="action=register"] {
+					display: none !important;
+				}
+			<?php endif; ?>
 		</style>
+		<?php if ( $hide_register ) : ?>
+		<script>
+		(function() {
+			// Hide register link via JavaScript as well for better compatibility
+			document.addEventListener('DOMContentLoaded', function() {
+				var navLinks = document.querySelectorAll('#nav a');
+				navLinks.forEach(function(link) {
+					if (link.href && (link.href.indexOf('action=register') !== -1 || link.href.indexOf('wp-signup.php') !== -1)) {
+						link.style.display = 'none';
+					}
+				});
+			});
+		})();
+		</script>
+		<?php endif; ?>
 		<?php
 	}
 

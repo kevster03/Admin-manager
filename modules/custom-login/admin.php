@@ -10,6 +10,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+// Handle rewrite rules flush.
+if ( isset( $_POST['am_flush_rewrite_rules'] ) && am_verify_nonce( 'am_flush_rewrite_nonce', 'am_flush_rewrite_rules' ) ) {
+	if ( current_user_can( 'manage_options' ) ) {
+		flush_rewrite_rules();
+		delete_option( 'am_custom_login_last_slug' );
+		echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Rewrite rules flushed successfully. Your custom login URL should work now.', 'admin-manager' ) . '</p></div>';
+	}
+}
+
 // Handle settings save.
 if ( isset( $_POST['am_save_custom_login'] ) && am_verify_nonce( 'am_custom_login_nonce', 'am_save_custom_login' ) ) {
 	if ( current_user_can( 'manage_options' ) ) {
@@ -37,6 +46,7 @@ if ( isset( $_POST['am_save_custom_login'] ) && am_verify_nonce( 'am_custom_logi
 			// Security options.
 			'hide_login_errors'    => isset( $_POST['hide_login_errors'] ) ? true : false,
 			'hide_lost_password'   => isset( $_POST['hide_lost_password'] ) ? true : false,
+			'hide_register'        => isset( $_POST['hide_register'] ) ? true : false,
 			'hide_back_link'       => isset( $_POST['hide_back_link'] ) ? true : false,
 
 			// Custom login URL.
@@ -69,6 +79,7 @@ $input_focus_color = isset( $settings['input_focus_color'] ) ? $settings['input_
 $custom_message = isset( $settings['custom_message'] ) ? $settings['custom_message'] : '';
 $hide_login_errors = isset( $settings['hide_login_errors'] ) ? $settings['hide_login_errors'] : false;
 $hide_lost_password = isset( $settings['hide_lost_password'] ) ? $settings['hide_lost_password'] : false;
+$hide_register = isset( $settings['hide_register'] ) ? $settings['hide_register'] : false;
 $hide_back_link = isset( $settings['hide_back_link'] ) ? $settings['hide_back_link'] : false;
 $enable_custom_url = isset( $settings['enable_custom_url'] ) ? $settings['enable_custom_url'] : false;
 $custom_login_slug = isset( $settings['custom_login_slug'] ) ? $settings['custom_login_slug'] : '';
@@ -258,6 +269,14 @@ $custom_css = isset( $settings['custom_css'] ) ? $settings['custom_css'] : '';
 						</p>
 
 						<label>
+							<input type="checkbox" name="hide_register" value="1" <?php checked( $hide_register, true ); ?>>
+							<?php esc_html_e( 'Hide "Register" Link', 'admin-manager' ); ?>
+						</label>
+						<p class="description">
+							<?php esc_html_e( 'Remove the registration link from the login page.', 'admin-manager' ); ?>
+						</p>
+
+						<label>
 							<input type="checkbox" name="hide_back_link" value="1" <?php checked( $hide_back_link, true ); ?>>
 							<?php esc_html_e( 'Hide "Back to Site" Link', 'admin-manager' ); ?>
 						</label>
@@ -308,9 +327,32 @@ $custom_css = isset( $settings['custom_css'] ) ? $settings['custom_css'] : '';
 								<?php echo esc_html( home_url( $custom_login_slug ) ); ?>
 							</code>
 						</p>
+						<p style="margin-top: 15px; padding: 10px; background: #f0f0f1; border-left: 4px solid #d63638;">
+							<strong><?php esc_html_e( 'Custom URL showing 404?', 'admin-manager' ); ?></strong><br>
+							<?php esc_html_e( 'Click the button below to flush rewrite rules. This forces WordPress to recognize your custom login URL.', 'admin-manager' ); ?>
+						</p>
 					<?php endif; ?>
 				</td>
 			</tr>
+
+			<?php if ( $enable_custom_url && ! empty( $custom_login_slug ) ) : ?>
+			<tr>
+				<th scope="row">
+					<?php esc_html_e( 'Fix 404 Error', 'admin-manager' ); ?>
+				</th>
+				<td>
+					<form method="post" action="" style="display: inline;">
+						<?php wp_nonce_field( 'am_flush_rewrite_rules', 'am_flush_rewrite_nonce' ); ?>
+						<button type="submit" name="am_flush_rewrite_rules" class="button button-secondary">
+							<?php esc_html_e( 'Flush Rewrite Rules Now', 'admin-manager' ); ?>
+						</button>
+					</form>
+					<p class="description">
+						<?php esc_html_e( 'Click this button if your custom login URL is not working or showing a 404 error.', 'admin-manager' ); ?>
+					</p>
+				</td>
+			</tr>
+			<?php endif; ?>
 		</table>
 
 		<!-- Custom CSS -->
