@@ -41,6 +41,14 @@ class AM_Media_Folders {
 		add_action( 'wp_ajax_am_bulk_move_media', array( $this, 'ajax_bulk_move_media' ) );
 		add_filter( 'attachment_fields_to_edit', array( $this, 'add_folder_field_to_attachment' ), 10, 2 );
 		add_filter( 'attachment_fields_to_save', array( $this, 'save_folder_field_for_attachment' ), 10, 2 );
+
+		// Bulk actions
+		add_filter( 'bulk_actions-upload', array( $this, 'add_bulk_actions' ) );
+		add_filter( 'handle_bulk_actions-upload', array( $this, 'handle_bulk_actions' ), 10, 3 );
+		add_action( 'admin_notices', array( $this, 'bulk_action_admin_notice' ) );
+
+		// Settings
+		add_action( 'admin_init', array( $this, 'register_settings' ) );
 	}
 
 	/**
@@ -501,5 +509,231 @@ class AM_Media_Folders {
 		}
 
 		return $post;
+	}
+
+	/**
+	 * Add custom bulk actions to media library.
+	 *
+	 * @param array $bulk_actions Existing bulk actions.
+	 * @return array Modified bulk actions.
+	 */
+	public function add_bulk_actions( $bulk_actions ) {
+		// Add separator
+		$bulk_actions['am_separator'] = '--- ' . __( 'Media Folders', 'admin-manager' ) . ' ---';
+
+		// Get all folders for dropdown
+		$folders = $this->get_all_folders_flat();
+
+		foreach ( $folders as $folder ) {
+			$indent = str_repeat( '— ', $folder['level'] - 1 );
+			$bulk_actions[ 'am_move_to_folder_' . $folder['id'] ] = sprintf(
+				__( 'Move to: %s%s', 'admin-manager' ),
+				$indent,
+				$folder['name']
+			);
+		}
+
+		// Add "Remove from folder" option
+		$bulk_actions['am_remove_from_folder'] = __( 'Remove from Folder', 'admin-manager' );
+
+		return $bulk_actions;
+	}
+
+	/**
+	 * Get all folders as flat array.
+	 *
+	 * @return array Flat folder list.
+	 */
+	private function get_all_folders_flat() {
+		$tree = $this->get_folder_tree();
+		$flat = array();
+		$this->flatten_tree( $tree, $flat );
+		return $flat;
+	}
+
+	/**
+	 * Flatten folder tree recursively.
+	 *
+	 * @param array $tree Folder tree.
+	 * @param array &$flat Flat array reference.
+	 */
+	private function flatten_tree( $tree, &$flat ) {
+		foreach ( $tree as $folder ) {
+			$flat[] = $folder;
+			if ( ! empty( $folder['children'] ) ) {
+				$this->flatten_tree( $folder['children'], $flat );
+			}
+		}
+	}
+
+	/**
+	 * Handle bulk actions.
+	 *
+	 * @param string $redirect_to Redirect URL.
+	 * @param string $doaction Action name.
+	 * @param array  $post_ids Selected post IDs.
+	 * @return string Modified redirect URL.
+	 */
+	public function handle_bulk_actions( $redirect_to, $doaction, $post_ids ) {
+		// Check if it's our action
+		if ( strpos( $doaction, 'am_move_to_folder_' ) === 0 || 'am_remove_from_folder' === $doaction ) {
+			$count = 0;
+
+			if ( 'am_remove_from_folder' === $doaction ) {
+				// Remove from all folders
+				foreach ( $post_ids as $post_id ) {
+					wp_delete_object_term_relationships( $post_id, self::TAXONOMY );
+					$count++;
+				}
+			} else {
+				// Move to specific folder
+				$folder_id = intval( str_replace( 'am_move_to_folder_', '', $doaction ) );
+
+				if ( $folder_id > 0 ) {
+					foreach ( $post_ids as $post_id ) {
+						wp_set_object_terms( $post_id, $folder_id, self::TAXONOMY );
+						$count++;
+					}
+				}
+			}
+
+			// Clear cache
+			wp_cache_delete( 'am_media_folders_tree' );
+
+			// Add query args for notice
+			$redirect_to = add_query_arg(
+				array(
+					'am_bulk_moved'  => $count,
+					'am_folder_id'   => isset( $folder_id ) ? $folder_id : 0,
+				),
+				$redirect_to
+			);
+		}
+
+		return $redirect_to;
+	}
+
+	/**
+	 * Display admin notice after bulk action.
+	 */
+	public function bulk_action_admin_notice() {
+		if ( ! empty( $_REQUEST['am_bulk_moved'] ) ) {
+			$count = intval( $_REQUEST['am_bulk_moved'] );
+			$folder_id = isset( $_REQUEST['am_folder_id'] ) ? intval( $_REQUEST['am_folder_id'] ) : 0;
+
+			if ( $folder_id > 0 ) {
+				$folder = get_term( $folder_id, self::TAXONOMY );
+				$folder_name = $folder && ! is_wp_error( $folder ) ? $folder->name : __( 'folder', 'admin-manager' );
+
+				printf(
+					'<div class="notice notice-success is-dismissible"><p>' .
+					/* translators: 1: Number of items, 2: Folder name */
+					_n(
+						'%1$d item moved to %2$s.',
+						'%1$d items moved to %2$s.',
+						$count,
+						'admin-manager'
+					) .
+					'</p></div>',
+					$count,
+					'<strong>' . esc_html( $folder_name ) . '</strong>'
+				);
+			} else {
+				printf(
+					'<div class="notice notice-success is-dismissible"><p>' .
+					/* translators: %d: Number of items */
+					_n(
+						'%d item removed from folder.',
+						'%d items removed from folder.',
+						$count,
+						'admin-manager'
+					) .
+					'</p></div>',
+					$count
+				);
+			}
+		}
+	}
+
+	/**
+	 * Register settings.
+	 */
+	public function register_settings() {
+		// Maximum folder depth
+		register_setting(
+			'am_media_folders_settings',
+			'am_folders_max_depth',
+			array(
+				'type'              => 'integer',
+				'default'           => 4,
+				'sanitize_callback' => array( $this, 'sanitize_max_depth' ),
+			)
+		);
+
+		// Enable drag and drop
+		register_setting(
+			'am_media_folders_settings',
+			'am_folders_enable_drag_drop',
+			array(
+				'type'              => 'boolean',
+				'default'           => true,
+				'sanitize_callback' => 'rest_sanitize_boolean',
+			)
+		);
+
+		// Show file count
+		register_setting(
+			'am_media_folders_settings',
+			'am_folders_show_count',
+			array(
+				'type'              => 'boolean',
+				'default'           => true,
+				'sanitize_callback' => 'rest_sanitize_boolean',
+			)
+		);
+
+		// Default collapsed state
+		register_setting(
+			'am_media_folders_settings',
+			'am_folders_default_collapsed',
+			array(
+				'type'              => 'boolean',
+				'default'           => true,
+				'sanitize_callback' => 'rest_sanitize_boolean',
+			)
+		);
+
+		// Remember folder state
+		register_setting(
+			'am_media_folders_settings',
+			'am_folders_remember_state',
+			array(
+				'type'              => 'boolean',
+				'default'           => true,
+				'sanitize_callback' => 'rest_sanitize_boolean',
+			)
+		);
+
+		// Enable bulk move
+		register_setting(
+			'am_media_folders_settings',
+			'am_folders_enable_bulk_move',
+			array(
+				'type'              => 'boolean',
+				'default'           => true,
+				'sanitize_callback' => 'rest_sanitize_boolean',
+			)
+		);
+	}
+
+	/**
+	 * Sanitize max depth setting.
+	 *
+	 * @param int $value The value to sanitize.
+	 * @return int Sanitized value.
+	 */
+	public function sanitize_max_depth( $value ) {
+		$value = intval( $value );
+		return max( 1, min( 10, $value ) );
 	}
 }

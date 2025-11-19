@@ -12,9 +12,65 @@
 		 * Initialize.
 		 */
 		init() {
+			this.restoreFolderState();
 			this.renderFolderTree();
 			this.bindEvents();
 			this.enhanceMediaLibrary();
+			this.restoreExpandedFolders();
+		},
+
+		/**
+		 * Restore folder state from localStorage.
+		 */
+		restoreFolderState() {
+			const savedFolder = localStorage.getItem('am_current_folder');
+			if (savedFolder) {
+				amMediaFolders.currentFolder = parseInt(savedFolder);
+			}
+		},
+
+		/**
+		 * Save current folder to localStorage.
+		 *
+		 * @param {number} folderId Folder ID.
+		 */
+		saveFolderState(folderId) {
+			localStorage.setItem('am_current_folder', folderId);
+		},
+
+		/**
+		 * Restore expanded folders from localStorage.
+		 */
+		restoreExpandedFolders() {
+			const expanded = localStorage.getItem('am_expanded_folders');
+			if (expanded) {
+				try {
+					const folderIds = JSON.parse(expanded);
+					folderIds.forEach(id => {
+						$(`.am-folder-children[data-parent-id="${id}"]`).removeClass('collapsed');
+						$(`.am-folder-toggle[data-folder-id="${id}"] .dashicons`)
+							.removeClass('dashicons-arrow-right')
+							.addClass('dashicons-arrow-down');
+					});
+				} catch (e) {
+					console.error('Error restoring expanded folders:', e);
+				}
+			}
+		},
+
+		/**
+		 * Save expanded folders to localStorage.
+		 */
+		saveExpandedFolders() {
+			const expanded = [];
+			$('.am-folder-toggle.has-children').each(function() {
+				const folderId = $(this).data('folder-id');
+				const $children = $(`.am-folder-children[data-parent-id="${folderId}"]`);
+				if (!$children.hasClass('collapsed')) {
+					expanded.push(folderId);
+				}
+			});
+			localStorage.setItem('am_expanded_folders', JSON.stringify(expanded));
 		},
 
 		/**
@@ -71,6 +127,58 @@
 				// Upload.php page
 				$('.wrap').prepend($sidebar);
 			}
+		},
+
+		/**
+		 * Expand all children folders recursively.
+		 *
+		 * @param {number} folderId Parent folder ID.
+		 */
+		expandAllChildren(folderId) {
+			const $children = $(`.am-folder-children[data-parent-id="${folderId}"]`);
+
+			// Expand immediate children
+			$children.removeClass('collapsed');
+			$(`.am-folder-toggle[data-folder-id="${folderId}"] .dashicons`)
+				.removeClass('dashicons-arrow-right')
+				.addClass('dashicons-arrow-down');
+
+			// Find all descendant folders and expand them recursively
+			$children.find('.am-folder-toggle.has-children').each(function() {
+				const childId = $(this).data('folder-id');
+				const $childChildren = $(`.am-folder-children[data-parent-id="${childId}"]`);
+
+				$childChildren.removeClass('collapsed');
+				$(this).find('.dashicons')
+					.removeClass('dashicons-arrow-right')
+					.addClass('dashicons-arrow-down');
+			});
+		},
+
+		/**
+		 * Collapse all children folders recursively.
+		 *
+		 * @param {number} folderId Parent folder ID.
+		 */
+		collapseAllChildren(folderId) {
+			const $children = $(`.am-folder-children[data-parent-id="${folderId}"]`);
+
+			// Collapse immediate children
+			$children.addClass('collapsed');
+			$(`.am-folder-toggle[data-folder-id="${folderId}"] .dashicons`)
+				.removeClass('dashicons-arrow-down')
+				.addClass('dashicons-arrow-right');
+
+			// Find all descendant folders and collapse them recursively
+			$children.find('.am-folder-toggle.has-children').each(function() {
+				const childId = $(this).data('folder-id');
+				const $childChildren = $(`.am-folder-children[data-parent-id="${childId}"]`);
+
+				$childChildren.addClass('collapsed');
+				$(this).find('.dashicons')
+					.removeClass('dashicons-arrow-down')
+					.addClass('dashicons-arrow-right');
+			});
 		},
 
 		/**
@@ -138,12 +246,28 @@
 				self.filterByFolder(folderId);
 			});
 
-			// Toggle folder
+			// Toggle folder (single click = toggle, Ctrl+click = recursive)
 			$(document).on('click', '.am-folder-toggle.has-children', function(e) {
 				e.stopPropagation();
 				const folderId = $(this).data('folder-id');
-				$(`.am-folder-children[data-parent-id="${folderId}"]`).toggleClass('collapsed');
-				$(this).find('.dashicons').toggleClass('dashicons-arrow-right dashicons-arrow-down');
+				const $children = $(`.am-folder-children[data-parent-id="${folderId}"]`);
+				const isCollapsed = $children.hasClass('collapsed');
+
+				if (e.ctrlKey || e.metaKey) {
+					// Recursive expand/collapse all children
+					if (isCollapsed) {
+						self.expandAllChildren(folderId);
+					} else {
+						self.collapseAllChildren(folderId);
+					}
+				} else {
+					// Normal toggle
+					$children.toggleClass('collapsed');
+					$(this).find('.dashicons').toggleClass('dashicons-arrow-right dashicons-arrow-down');
+				}
+
+				// Save state
+				self.saveExpandedFolders();
 			});
 
 			// Create folder
@@ -224,6 +348,10 @@
 		 * @param {number} folderId Folder ID.
 		 */
 		filterByFolder(folderId) {
+			// Save folder state
+			this.saveFolderState(folderId);
+			amMediaFolders.currentFolder = folderId;
+
 			$('.am-folder-item').removeClass('active');
 			$(`.am-folder-item[data-folder-id="${folderId}"]`).addClass('active');
 
