@@ -1,0 +1,266 @@
+/**
+ * Admin Manager - Admin Styles
+ *
+ * @package AdminManager
+ */
+
+/* Admin Wrapper */
+.am-admin-wrap {
+	max-width: 1200px;
+}
+
+.am-admin-header {
+	margin-bottom: 20px;
+}
+
+/* Safe Mode Section */
+.am-safe-mode-section {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-left: 4px solid #2271b1;
+	padding: 20px;
+	margin: 20px 0;
+}
+
+.am-safe-mode-section h2 {
+	margin-top: 0;
+}
+
+.am-toggle-label {
+	display: inline-flex;
+	align-items: center;
+	gap: 10px;
+	font-size: 14px;
+	cursor: pointer;
+	margin: 15px 0;
+}
+
+.am-toggle-label input[type="checkbox"] {
+	margin: 0;
+	width: 18px;
+	height: 18px;
+}
+
+.am-toggle-text {
+	font-weight: 500;
+}
+
+/* Modules Grid */
+.am-modules-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+	gap: 20px;
+	margin: 20px 0;
+}
+
+.am-module-card {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 20px;
+	transition: all 0.2s ease;
+}
+
+.am-module-card:hover {
+	border-color: #2271b1;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.am-module-label {
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+	cursor: pointer;
+	margin: 0;
+}
+
+.am-module-label input[type="checkbox"] {
+	margin-top: 4px;
+	width: 18px;
+	height: 18px;
+	flex-shrink: 0;
+}
+
+.am-module-info h3 {
+	margin: 0 0 8px 0;
+	font-size: 16px;
+	font-weight: 600;
+	color: #1d2327;
+}
+
+.am-module-info .description {
+	margin: 0;
+	font-size: 13px;
+	line-height: 1.5;
+	color: #646970;
+}
+
+/* Debug Section */
+.am-debug-section {
+	background: #f6f7f7;
+	border: 1px solid #c3c4c7;
+	padding: 20px;
+	margin: 20px 0;
+}
+
+.am-debug-section h2 {
+	margin-top: 0;
+}
+
+/* Settings Table */
+.am-settings-table {
+	width: 100%;
+	border-collapse: collapse;
+	margin: 20px 0;
+	background: #fff;
+}
+
+.am-settings-table th,
+.am-settings-table td {
+	padding: 12px;
+	text-align: left;
+	border-bottom: 1px solid #c3c4c7;
+}
+
+.am-settings-table th {
+	background: #f6f7f7;
+	font-weight: 600;
+}
+
+.am-settings-table tr:last-child td {
+	border-bottom: none;
+}
+
+/* Form Elements */
+.am-form-row {
+	margin-bottom: 20px;
+}
+
+.am-form-row label {
+	display: block;
+	margin-bottom: 8px;
+	font-weight: 600;
+}
+
+.am-form-row input[type="text"],
+.am-form-row input[type="number"],
+.am-form-row input[type="url"],
+.am-form-row select,
+.am-form-row textarea {
+	width: 100%;
+	max-width: 500px;
+}
+
+.am-form-row .description {
+	margin-top: 5px;
+	font-style: italic;
+}
+
+/* Notices */
+.am-notice {
+	padding: 12px;
+	margin: 15px 0;
+	border-left: 4px solid;
+	background: #fff;
+}
+
+.am-notice-warning {
+	border-color: #dba617;
+	background: #fcf9e8;
+}
+
+.am-notice-info {
+	border-color: #2271b1;
+	background: #f0f6fc;
+}
+
+.am-notice-success {
+	border-color: #00a32a;
+	background: #edfaef;
+}
+
+.am-notice-error {
+	border-color: #d63638;
+	background: #fcf0f1;
+}
+
+/* Button Groups */
+.am-button-group {
+	display: flex;
+	gap: 10px;
+	margin: 15px 0;
+}
+
+/* Tabs */
+.am-tabs {
+	margin: 20px 0;
+}
+
+.am-tabs-nav {
+	display: flex;
+	gap: 5px;
+	border-bottom: 1px solid #c3c4c7;
+	margin-bottom: 20px;
+}
+
+.am-tab-link {
+	padding: 10px 15px;
+	background: none;
+	border: none;
+	border-bottom: 2px solid transparent;
+	cursor: pointer;
+	font-size: 14px;
+	color: #2c3338;
+	transition: all 0.2s ease;
+}
+
+.am-tab-link:hover {
+	color: #2271b1;
+}
+
+.am-tab-link.active {
+	color: #2271b1;
+	border-bottom-color: #2271b1;
+	font-weight: 600;
+}
+
+.am-tab-content {
+	display: none;
+}
+
+.am-tab-content.active {
+	display: block;
+}
+
+/* Loading Spinner */
+.am-spinner {
+	display: inline-block;
+	width: 20px;
+	height: 20px;
+	border: 2px solid #f3f3f3;
+	border-top: 2px solid #2271b1;
+	border-radius: 50%;
+	animation: am-spin 0.8s linear infinite;
+	vertical-align: middle;
+	margin-left: 10px;
+}
+
+@keyframes am-spin {
+	0% { transform: rotate(0deg); }
+	100% { transform: rotate(360deg); }
+}
+
+/* Responsive */
+@media (max-width: 782px) {
+	.am-modules-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.am-button-group {
+		flex-direction: column;
+	}
+
+	.am-button-group button {
+		width: 100%;
+	}
+}
