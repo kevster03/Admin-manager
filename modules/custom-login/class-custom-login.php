@@ -62,6 +62,9 @@ class AM_Custom_Login {
 		// Add custom rewrite rule.
 		add_action( 'init', array( $this, 'add_custom_login_rewrite' ) );
 
+		// Register custom query var.
+		add_filter( 'query_vars', array( $this, 'add_query_vars' ) );
+
 		// Filter login URL.
 		add_filter( 'login_url', array( $this, 'custom_login_url_filter' ), 10, 3 );
 		add_filter( 'site_url', array( $this, 'custom_login_url_filter_site_url' ), 10, 4 );
@@ -104,6 +107,17 @@ class AM_Custom_Login {
 			flush_rewrite_rules();
 			update_option( 'am_custom_login_last_slug', $custom_slug );
 		}
+	}
+
+	/**
+	 * Add custom query vars.
+	 *
+	 * @param array $vars Query vars.
+	 * @return array Modified query vars.
+	 */
+	public function add_query_vars( $vars ) {
+		$vars[] = 'am_custom_login';
+		return $vars;
 	}
 
 	/**
