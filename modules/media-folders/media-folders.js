@@ -246,6 +246,15 @@
 				}
 
 				const folderId = $(this).data('folder-id');
+				const folderName = $(this).find('.am-folder-name').text();
+				const folderCount = $(this).find('.am-folder-count').text();
+
+				self.debugLog(`User clicked folder: "${folderName}" (ID: ${folderId}, Count: ${folderCount})`, 'info', {
+					folderId: folderId,
+					folderName: folderName,
+					currentURL: window.location.href
+				});
+
 				self.filterByFolder(folderId);
 			});
 

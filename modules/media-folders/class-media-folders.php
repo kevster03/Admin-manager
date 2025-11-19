@@ -294,39 +294,62 @@ class AM_Media_Folders {
 	public function filter_media_grid_by_folder( $query ) {
 		// Only filter on upload.php admin page for attachments
 		if ( ! is_admin() || ! $query->is_main_query() ) {
+			self::debug_log( 'filter_media_grid_by_folder: Not admin or not main query - SKIPPED', 'warning', array(
+				'is_admin'      => is_admin(),
+				'is_main_query' => $query->is_main_query(),
+			) );
 			return;
 		}
 
 		global $pagenow;
 		if ( 'upload.php' !== $pagenow ) {
+			self::debug_log( "filter_media_grid_by_folder: Not on upload.php (current: {$pagenow}) - SKIPPED", 'warning' );
 			return;
 		}
 
 		// Check if media_folder parameter is set
 		if ( ! isset( $_GET['media_folder'] ) ) {
+			self::debug_log( 'filter_media_grid_by_folder: No media_folder in URL - SKIPPED', 'warning', array(
+				'URL'        => isset( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : '',
+				'GET_params' => $_GET,
+			) );
 			return;
 		}
 
 		$folder_id = intval( $_GET['media_folder'] );
 
-		self::debug_log( "Filtering grid view by folder", 'info', array(
-			'folder_id' => $folder_id,
-			'pagenow'   => $pagenow,
+		// Get folder details
+		$folder = get_term( $folder_id, self::TAXONOMY );
+		$folder_name = $folder && ! is_wp_error( $folder ) ? $folder->name : 'Unknown';
+
+		// Get all attachments in this folder
+		$attachments_in_folder = get_objects_in_term( $folder_id, self::TAXONOMY );
+
+		self::debug_log( "filter_media_grid_by_folder: FILTERING BY FOLDER \"{$folder_name}\" (ID: {$folder_id})", 'info', array(
+			'folder_id'            => $folder_id,
+			'folder_name'          => $folder_name,
+			'pagenow'              => $pagenow,
+			'URL'                  => isset( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : '',
+			'attachments_in_folder' => is_array( $attachments_in_folder ) ? $attachments_in_folder : array(),
+			'attachment_count'     => is_array( $attachments_in_folder ) ? count( $attachments_in_folder ) : 0,
 		) );
 
 		if ( $folder_id > 0 ) {
 			// Show media in specific folder
-			$query->set(
-				'tax_query',
+			$tax_query = array(
 				array(
-					array(
-						'taxonomy' => self::TAXONOMY,
-						'field'    => 'term_id',
-						'terms'    => $folder_id,
-					),
-				)
+					'taxonomy' => self::TAXONOMY,
+					'field'    => 'term_id',
+					'terms'    => $folder_id,
+				),
 			);
-			self::debug_log( "Applied tax_query filter for folder {$folder_id}", 'success' );
+
+			$query->set( 'tax_query', $tax_query );
+
+			self::debug_log( "filter_media_grid_by_folder: Applied tax_query filter", 'success', array(
+				'tax_query'        => $tax_query,
+				'expected_results' => is_array( $attachments_in_folder ) ? count( $attachments_in_folder ) : 0,
+			) );
 		} elseif ( -1 === $folder_id ) {
 			// Show uncategorized media (not in any folder)
 			$query->set(
@@ -338,10 +361,10 @@ class AM_Media_Folders {
 					),
 				)
 			);
-			self::debug_log( "Applied tax_query filter for uncategorized", 'success' );
+			self::debug_log( "filter_media_grid_by_folder: Applied uncategorized filter", 'success' );
 		} elseif ( 0 === $folder_id ) {
 			// Show all media - no filter needed
-			self::debug_log( "Showing all media (no filter)", 'info' );
+			self::debug_log( "filter_media_grid_by_folder: Showing all media (no filter)", 'info' );
 		}
 	}
 

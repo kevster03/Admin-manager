@@ -52,7 +52,15 @@ $debug_logs = AM_Media_Folders::get_debug_logs();
 				<span class="dashicons dashicons-warning" style="font-size: 24px;"></span>
 				Debug Log Dashboard
 			</h2>
-			<button type="button" id="am-clear-debug-logs" class="button button-secondary">Clear Logs</button>
+			<div>
+				<button type="button" id="am-refresh-debug-logs" class="button">
+					<span class="dashicons dashicons-update" style="margin-top: 3px;"></span> Refresh Logs
+				</button>
+				<button type="button" id="am-copy-debug-logs" class="button">
+					<span class="dashicons dashicons-clipboard" style="margin-top: 3px;"></span> Copy All
+				</button>
+				<button type="button" id="am-clear-debug-logs" class="button button-secondary">Clear Logs</button>
+			</div>
 		</div>
 
 		<p style="margin: 0 0 15px 0;">
@@ -101,12 +109,17 @@ $debug_logs = AM_Media_Folders::get_debug_logs();
 		</div>
 
 		<p style="margin: 15px 0 0 0; font-size: 12px; color: #6c757d;">
-			<strong>Auto-refresh:</strong> Logs auto-refresh every 5 seconds. Total logs: <?php echo esc_html( count( $debug_logs ) ); ?>/100
+			<strong>Instructions:</strong> Use "Refresh Logs" to update manually. "Copy All" copies logs to clipboard. Total logs: <?php echo esc_html( count( $debug_logs ) ); ?>/100
 		</p>
 	</div>
 
 	<script>
 	jQuery(document).ready(function($) {
+		// Refresh debug logs manually
+		$('#am-refresh-debug-logs').on('click', function() {
+			location.reload();
+		});
+
 		// Clear debug logs
 		$('#am-clear-debug-logs').on('click', function() {
 			if (!confirm('Clear all debug logs?')) return;
@@ -119,10 +132,32 @@ $debug_logs = AM_Media_Folders::get_debug_logs();
 			});
 		});
 
-		// Auto-refresh logs every 5 seconds
-		setInterval(function() {
-			location.reload();
-		}, 5000);
+		// Copy all logs to clipboard
+		$('#am-copy-debug-logs').on('click', function() {
+			var logs = '';
+			$('#am-debug-logs-container > div').each(function() {
+				var type = $(this).find('strong').first().text();
+				var time = $(this).find('span[style*="color: #6c757d"]').first().text();
+				var message = $(this).find('div[style*="color: #333"]').text();
+				logs += type + ' | ' + time + ' | ' + message + '\n';
+
+				// Add data if exists
+				var data = $(this).find('pre').text();
+				if (data) {
+					logs += 'DATA: ' + data + '\n';
+				}
+				logs += '---\n';
+			});
+
+			// Copy to clipboard
+			var $temp = $('<textarea>');
+			$('body').append($temp);
+			$temp.val(logs).select();
+			document.execCommand('copy');
+			$temp.remove();
+
+			alert('Debug logs copied to clipboard!');
+		});
 	});
 	</script>
 
