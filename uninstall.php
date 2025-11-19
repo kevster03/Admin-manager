@@ -25,7 +25,9 @@ function am_uninstall_cleanup_options() {
 	$modules = array(
 		'author-box',
 		'reading-time',
+		'table-of-contents',
 		'custom-login',
+		'performance',
 	);
 
 	foreach ( $modules as $module ) {
