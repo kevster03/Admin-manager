@@ -29,6 +29,9 @@ class AM_Performance {
 
 		// Preload assets.
 		add_action( 'wp_head', array( $this, 'add_preload_assets' ), 1 );
+
+		// Remove Google Fonts from resource hints if set to remove.
+		add_filter( 'wp_resource_hints', array( $this, 'remove_google_fonts_hints' ), 999, 2 );
 	}
 
 	/**
@@ -39,9 +42,17 @@ class AM_Performance {
 		$google_fonts_action = isset( $settings['google_fonts_action'] ) ? $settings['google_fonts_action'] : 'none';
 
 		if ( 'remove' === $google_fonts_action ) {
-			// Remove Google Fonts from frontend and admin.
-			add_filter( 'style_loader_tag', array( $this, 'remove_google_fonts_style' ), 10, 2 );
+			// Remove Google Fonts from frontend and admin - high priority to override other plugins.
+			add_filter( 'style_loader_tag', array( $this, 'remove_google_fonts_style' ), PHP_INT_MAX, 2 );
 			add_action( 'wp_enqueue_scripts', array( $this, 'dequeue_google_fonts' ), PHP_INT_MAX );
+			add_action( 'wp_print_styles', array( $this, 'dequeue_google_fonts' ), PHP_INT_MAX );
+
+			// Start output buffering to remove Google Fonts from HTML - earliest possible.
+			add_action( 'template_redirect', array( $this, 'start_buffer' ), -9999 );
+
+			// Also handle admin side.
+			add_action( 'admin_enqueue_scripts', array( $this, 'dequeue_google_fonts' ), PHP_INT_MAX );
+			add_action( 'admin_print_styles', array( $this, 'dequeue_google_fonts' ), PHP_INT_MAX );
 		}
 	}
 
@@ -77,6 +88,87 @@ class AM_Performance {
 				wp_deregister_style( $handle );
 			}
 		}
+	}
+
+	/**
+	 * Start output buffering to remove Google Fonts from HTML.
+	 */
+	public function start_buffer() {
+		ob_start( array( $this, 'end_buffer' ) );
+	}
+
+	/**
+	 * Process buffer and remove Google Fonts references.
+	 *
+	 * @param string $html HTML content.
+	 * @return string Modified HTML.
+	 */
+	public function end_buffer( $html ) {
+		// Remove Google Fonts link tags.
+		$html = preg_replace(
+			'/<link[^>]*href=["\'][^"\']*fonts\.googleapis\.com[^"\']*["\'][^>]*>/i',
+			'',
+			$html
+		);
+
+		// Remove Google Fonts @import from inline styles.
+		$html = preg_replace(
+			'/@import\s+url\(["\']?https?:\/\/fonts\.googleapis\.com[^)]+\)[^;]*;?/i',
+			'',
+			$html
+		);
+
+		// Remove fonts.gstatic.com preconnect hints.
+		$html = preg_replace(
+			'/<link[^>]*rel=["\'](?:preconnect|dns-prefetch)["\'][^>]*href=["\'][^"\']*fonts\.(?:googleapis|gstatic)\.com[^"\']*["\'][^>]*>/i',
+			'',
+			$html
+		);
+		$html = preg_replace(
+			'/<link[^>]*href=["\'][^"\']*fonts\.(?:googleapis|gstatic)\.com[^"\']*["\'][^>]*rel=["\'](?:preconnect|dns-prefetch)["\'][^>]*>/i',
+			'',
+			$html
+		);
+
+		// Remove Google Fonts from CSS content (inline and external).
+		$html = preg_replace(
+			'/url\(["\']?https?:\/\/fonts\.(?:googleapis|gstatic)\.com[^)]+\)/i',
+			'',
+			$html
+		);
+
+		return $html;
+	}
+
+	/**
+	 * Remove Google Fonts from resource hints.
+	 *
+	 * @param array  $urls URLs for resource hints.
+	 * @param string $relation_type Type of relation.
+	 * @return array Modified URLs.
+	 */
+	public function remove_google_fonts_hints( $urls, $relation_type ) {
+		$settings = am_get_module_setting( 'performance' );
+		$google_fonts_action = isset( $settings['google_fonts_action'] ) ? $settings['google_fonts_action'] : 'none';
+
+		if ( 'remove' !== $google_fonts_action ) {
+			return $urls;
+		}
+
+		// Remove Google Fonts URLs.
+		$filtered_urls = array();
+		foreach ( $urls as $url ) {
+			$href = is_array( $url ) ? $url['href'] : $url;
+
+			// Skip Google Fonts domains.
+			if ( false !== strpos( $href, 'fonts.googleapis.com' ) || false !== strpos( $href, 'fonts.gstatic.com' ) ) {
+				continue;
+			}
+
+			$filtered_urls[] = $url;
+		}
+
+		return $filtered_urls;
 	}
 
 	/**
@@ -209,14 +301,40 @@ class AM_Performance {
 		// Build preload link.
 		$link = '<link rel="preload" href="' . esc_url( $url ) . '" as="' . esc_attr( $as_attr ) . '"';
 
-		// Add crossorigin for fonts.
+		// Add type and crossorigin for fonts.
 		if ( 'font' === $type ) {
+			// Detect font MIME type from extension.
+			$mime_type = $this->get_font_mime_type( $url );
+			if ( $mime_type ) {
+				$link .= ' type="' . esc_attr( $mime_type ) . '"';
+			}
 			$link .= ' crossorigin="anonymous"';
 		}
 
 		$link .= '>';
 
 		echo $link . "\n"; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+	}
+
+	/**
+	 * Get MIME type for font based on extension.
+	 *
+	 * @param string $url Font URL.
+	 * @return string|false MIME type or false if not detected.
+	 */
+	private function get_font_mime_type( $url ) {
+		$extension = pathinfo( $url, PATHINFO_EXTENSION );
+
+		$mime_types = array(
+			'woff2' => 'font/woff2',
+			'woff'  => 'font/woff',
+			'ttf'   => 'font/ttf',
+			'otf'   => 'font/otf',
+			'eot'   => 'application/vnd.ms-fontobject',
+			'svg'   => 'image/svg+xml',
+		);
+
+		return isset( $mime_types[ $extension ] ) ? $mime_types[ $extension ] : false;
 	}
 
 	/**
