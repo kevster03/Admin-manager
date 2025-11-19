@@ -292,27 +292,23 @@ class AM_Media_Folders {
 	 * @param WP_Query $query The WP_Query instance.
 	 */
 	public function filter_media_grid_by_folder( $query ) {
-		// Only filter on upload.php admin page for attachments
-		if ( ! is_admin() || ! $query->is_main_query() ) {
-			self::debug_log( 'filter_media_grid_by_folder: Not admin or not main query - SKIPPED', 'warning', array(
-				'is_admin'      => is_admin(),
-				'is_main_query' => $query->is_main_query(),
-			) );
+		// Only filter in admin area
+		if ( ! is_admin() ) {
+			return;
+		}
+
+		// Only filter attachment queries
+		if ( ! isset( $query->query_vars['post_type'] ) || 'attachment' !== $query->query_vars['post_type'] ) {
 			return;
 		}
 
 		global $pagenow;
 		if ( 'upload.php' !== $pagenow ) {
-			self::debug_log( "filter_media_grid_by_folder: Not on upload.php (current: {$pagenow}) - SKIPPED", 'warning' );
 			return;
 		}
 
 		// Check if media_folder parameter is set
 		if ( ! isset( $_GET['media_folder'] ) ) {
-			self::debug_log( 'filter_media_grid_by_folder: No media_folder in URL - SKIPPED', 'warning', array(
-				'URL'        => isset( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : '',
-				'GET_params' => $_GET,
-			) );
 			return;
 		}
 
@@ -326,12 +322,13 @@ class AM_Media_Folders {
 		$attachments_in_folder = get_objects_in_term( $folder_id, self::TAXONOMY );
 
 		self::debug_log( "filter_media_grid_by_folder: FILTERING BY FOLDER \"{$folder_name}\" (ID: {$folder_id})", 'info', array(
-			'folder_id'            => $folder_id,
-			'folder_name'          => $folder_name,
-			'pagenow'              => $pagenow,
-			'URL'                  => isset( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : '',
+			'folder_id'             => $folder_id,
+			'folder_name'           => $folder_name,
+			'pagenow'               => $pagenow,
+			'URL'                   => isset( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : '',
 			'attachments_in_folder' => is_array( $attachments_in_folder ) ? $attachments_in_folder : array(),
-			'attachment_count'     => is_array( $attachments_in_folder ) ? count( $attachments_in_folder ) : 0,
+			'attachment_count'      => is_array( $attachments_in_folder ) ? count( $attachments_in_folder ) : 0,
+			'query_vars'            => $query->query_vars,
 		) );
 
 		if ( $folder_id > 0 ) {
