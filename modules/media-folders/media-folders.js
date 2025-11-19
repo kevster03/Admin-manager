@@ -29,8 +29,20 @@
 		 * Initialize.
 		 */
 		async init() {
+			console.log('Media Folders initializing...', {
+				restUrl: amMediaFolders.restUrl,
+				ajaxUrl: amMediaFolders.ajaxUrl,
+				nonce: amMediaFolders.nonce ? 'Present' : 'Missing',
+				currentFolder: amMediaFolders.currentFolder
+			});
+
 			this.apiUrl = amMediaFolders.restUrl;
 			this.currentFolder = amMediaFolders.currentFolder;
+
+			this.debugLog('Media Folders module initialized', 'info', {
+				apiUrl: this.apiUrl,
+				currentFolder: this.currentFolder
+			});
 
 			// Load folders from REST API
 			await this.loadFolders();
@@ -40,24 +52,39 @@
 			this.bindEvents();
 			this.enhanceMediaLibrary();
 			this.restoreExpandedFolders();
+
+			this.debugLog('Media Folders UI rendered', 'success');
 		},
 
 		/**
 		 * Load folders from REST API.
 		 */
 		async loadFolders() {
+			const url = `${this.apiUrl}/folders`;
+			console.log('Loading folders from:', url);
+
 			try {
-				const response = await fetch(`${this.apiUrl}/folders`, {
+				const response = await fetch(url, {
 					headers: {
 						'X-WP-Nonce': amMediaFolders.nonce
 					}
 				});
 
+				console.log('Load folders response:', {
+					status: response.status,
+					statusText: response.statusText,
+					ok: response.ok
+				});
+
 				if (!response.ok) {
-					throw new Error('Failed to load folders');
+					const errorData = await response.json().catch(() => ({}));
+					console.error('Load folders failed:', errorData);
+					throw new Error(errorData.message || 'Failed to load folders');
 				}
 
 				this.folders = await response.json();
+				console.log('Folders loaded:', this.folders);
+
 				this.debugLog('Folders loaded from REST API', 'success', {
 					count: this.folders.length
 				});
@@ -246,8 +273,18 @@
 			const name = prompt(amMediaFolders.strings.folderName);
 			if (!name) return;
 
+			this.debugLog('Creating folder...', 'info', {
+				name: name,
+				parent_id: parentId,
+				apiUrl: this.apiUrl,
+				nonce: amMediaFolders.nonce ? 'Present' : 'Missing'
+			});
+
 			try {
-				const response = await fetch(`${this.apiUrl}/folders`, {
+				const url = `${this.apiUrl}/folders`;
+				this.debugLog('Sending POST request to: ' + url, 'info');
+
+				const response = await fetch(url, {
 					method: 'POST',
 					headers: {
 						'Content-Type': 'application/json',
@@ -259,17 +296,32 @@
 					})
 				});
 
+				this.debugLog('Response received', 'info', {
+					status: response.status,
+					statusText: response.statusText,
+					ok: response.ok
+				});
+
 				const data = await response.json();
 
+				this.debugLog('Response data parsed', 'info', {
+					data: data
+				});
+
 				if (!response.ok) {
-					throw new Error(data.message || 'Failed to create folder');
+					throw new Error(data.message || data.code || 'Failed to create folder');
 				}
 
-				this.debugLog('Folder created', 'success', data);
+				this.debugLog('Folder created successfully!', 'success', data);
+				alert('Folder created successfully!');
 				await this.reload();
 			} catch (error) {
-				alert(error.message);
-				this.debugLog('Create folder failed', 'error', { error: error.message });
+				console.error('Create folder error:', error);
+				alert('Error: ' + error.message);
+				this.debugLog('Create folder failed', 'error', {
+					error: error.message,
+					stack: error.stack
+				});
 			}
 		},
 

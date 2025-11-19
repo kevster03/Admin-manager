@@ -615,6 +615,7 @@ class AM_Media_Folders {
 			'amMediaFolders',
 			array(
 				'restUrl'       => rest_url( 'am/v1' ),
+				'ajaxUrl'       => admin_url( 'admin-ajax.php' ),
 				'nonce'         => wp_create_nonce( 'wp_rest' ),
 				'currentFolder' => isset( $_GET['am_folder'] ) ? intval( $_GET['am_folder'] ) : 0,
 				'strings'       => array(
