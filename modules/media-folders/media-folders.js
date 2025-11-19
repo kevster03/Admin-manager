@@ -454,6 +454,23 @@
 		},
 
 		/**
+		 * Send debug log to server.
+		 *
+		 * @param {string} message Log message.
+		 * @param {string} type Log type.
+		 * @param {object} data Additional data.
+		 */
+		debugLog(message, type = 'info', data = {}) {
+			$.post(amMediaFolders.ajaxUrl, {
+				action: 'am_log_debug',
+				nonce: amMediaFolders.nonce,
+				message: message,
+				type: type,
+				data: data
+			});
+		},
+
+		/**
 		 * Open file selector modal to add files to folder.
 		 *
 		 * @param {number} folderId Folder ID.
@@ -462,8 +479,12 @@
 		openFileSelector(folderId, folderName) {
 			const self = this;
 
+			this.debugLog(`Add Files button clicked for folder: ${folderName} (ID: ${folderId})`, 'info');
+
 			// Use WordPress media library modal
 			if (typeof wp !== 'undefined' && wp.media) {
+				this.debugLog('WordPress media library is available', 'success');
+
 				const frame = wp.media({
 					title: `Add Files to: ${folderName}`,
 					button: {
@@ -476,13 +497,17 @@
 					}
 				});
 
+				this.debugLog('Media modal created with uncategorized filter', 'info');
+
 				// Filter to show only uncategorized files
 				frame.on('open', function() {
+					self.debugLog('Media modal opened', 'success');
 					const library = frame.state().get('library');
 					if (library) {
 						library.props.set({
 							media_folder: -1  // Only uncategorized files
 						});
+						self.debugLog('Filter applied: showing only uncategorized files', 'info');
 					}
 				});
 
@@ -490,15 +515,27 @@
 					const attachments = frame.state().get('selection').toJSON();
 					const attachmentIds = attachments.map(a => a.id);
 
+					self.debugLog(`User selected ${attachmentIds.length} file(s)`, 'info', {
+						attachmentIds: attachmentIds
+					});
+
 					if (attachmentIds.length > 0) {
 						console.log('Moving files:', attachmentIds, 'to folder:', folderId);
 						self.bulkMoveMedia(attachmentIds, folderId, folderName);
+					} else {
+						self.debugLog('No files selected', 'warning');
 					}
 				});
 
 				frame.open();
+				this.debugLog('Opening media modal...', 'info');
 			} else {
-				console.error('WordPress media library not available');
+				const errorMsg = 'WordPress media library not available';
+				console.error(errorMsg);
+				this.debugLog(errorMsg, 'error', {
+					wp: typeof wp,
+					wpMedia: typeof wp !== 'undefined' ? typeof wp.media : 'undefined'
+				});
 				alert('Error: WordPress media library not loaded');
 			}
 		},
@@ -511,6 +548,13 @@
 		 * @param {string} folderName Folder name.
 		 */
 		bulkMoveMedia(attachmentIds, folderId, folderName) {
+			this.debugLog('Starting AJAX bulk move request', 'info', {
+				attachmentIds: attachmentIds,
+				folderId: folderId,
+				folderName: folderName,
+				ajaxUrl: amMediaFolders.ajaxUrl
+			});
+
 			console.log('bulkMoveMedia called with:', {
 				attachmentIds: attachmentIds,
 				folderId: folderId,
@@ -531,17 +575,30 @@
 				success: (response) => {
 					console.log('AJAX response:', response);
 					if (response.success) {
+						this.debugLog('AJAX request successful - files moved!', 'success', {
+							count: response.data.count,
+							response: response
+						});
 						// Refresh the page to show updated counts
 						alert(`Successfully moved ${attachmentIds.length} file(s) to ${folderName}`);
 						location.reload();
 					} else {
 						console.error('Move failed:', response);
+						this.debugLog('AJAX request returned error', 'error', {
+							message: response.data.message,
+							response: response
+						});
 						alert(response.data.message || 'Error moving files');
 					}
 				},
 				error: (xhr, status, error) => {
 					console.error('AJAX error:', {xhr, status, error});
-					alert('Error moving files to folder. Check console for details.');
+					this.debugLog('AJAX request failed completely', 'error', {
+						status: status,
+						error: error,
+						responseText: xhr.responseText
+					});
+					alert('Error moving files to folder. Check Debug Dashboard.');
 				}
 			});
 		},

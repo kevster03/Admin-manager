@@ -28,6 +28,11 @@ class AM_Media_Folders {
 	const TAXONOMY = 'media_folder';
 
 	/**
+	 * Debug log option name.
+	 */
+	const DEBUG_LOG = 'am_media_folders_debug_log';
+
+	/**
 	 * Constructor.
 	 */
 	public function __construct() {
@@ -49,6 +54,10 @@ class AM_Media_Folders {
 
 		// Settings
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
+
+		// Debug
+		add_action( 'wp_ajax_am_log_debug', array( $this, 'ajax_log_debug' ) );
+		add_action( 'wp_ajax_am_clear_debug', array( $this, 'ajax_clear_debug' ) );
 	}
 
 	/**
@@ -417,16 +426,28 @@ class AM_Media_Folders {
 	 * AJAX: Bulk move media items.
 	 */
 	public function ajax_bulk_move_media() {
+		self::debug_log( 'AJAX bulk move started', 'info', array(
+			'POST' => $_POST,
+		) );
+
 		check_ajax_referer( 'am_media_folders', 'nonce' );
+		self::debug_log( 'Nonce verified', 'success' );
 
 		if ( ! current_user_can( 'upload_files' ) ) {
+			self::debug_log( 'Permission denied', 'error' );
 			wp_send_json_error( array( 'message' => __( 'Permission denied.', 'admin-manager' ) ) );
 		}
 
 		$attachment_ids = isset( $_POST['attachment_ids'] ) ? array_map( 'intval', $_POST['attachment_ids'] ) : array();
 		$folder_id = isset( $_POST['folder_id'] ) ? intval( $_POST['folder_id'] ) : 0;
 
+		self::debug_log( 'Processing bulk move', 'info', array(
+			'attachment_ids' => $attachment_ids,
+			'folder_id'      => $folder_id,
+		) );
+
 		if ( empty( $attachment_ids ) ) {
+			self::debug_log( 'No media items selected', 'error' );
 			wp_send_json_error( array( 'message' => __( 'No media items selected.', 'admin-manager' ) ) );
 		}
 
@@ -437,15 +458,23 @@ class AM_Media_Folders {
 				$result = wp_set_object_terms( $attachment_id, $folder_id, self::TAXONOMY, false );
 				if ( ! is_wp_error( $result ) ) {
 					$moved_count++;
+					self::debug_log( "Moved attachment {$attachment_id} to folder {$folder_id}", 'success' );
+				} else {
+					self::debug_log( "Failed to move attachment {$attachment_id}", 'error', array(
+						'error' => $result->get_error_message(),
+					) );
 				}
 			} else {
 				wp_delete_object_term_relationships( $attachment_id, self::TAXONOMY );
 				$moved_count++;
+				self::debug_log( "Removed attachment {$attachment_id} from all folders", 'success' );
 			}
 		}
 
 		// Clear cache after bulk move
 		wp_cache_delete( 'am_media_folders_tree' );
+
+		self::debug_log( "Bulk move completed: {$moved_count} files moved", 'success' );
 
 		wp_send_json_success( array(
 			'count' => $moved_count,
@@ -761,5 +790,76 @@ class AM_Media_Folders {
 	public function sanitize_max_depth( $value ) {
 		$value = intval( $value );
 		return max( 1, min( 10, $value ) );
+	}
+
+	/**
+	 * Write debug log entry.
+	 *
+	 * @param string $message Log message.
+	 * @param string $type Log type (info, success, error, warning).
+	 * @param array  $data Additional data.
+	 */
+	public static function debug_log( $message, $type = 'info', $data = array() ) {
+		$logs = get_option( self::DEBUG_LOG, array() );
+
+		// Keep only last 100 entries
+		if ( count( $logs ) >= 100 ) {
+			$logs = array_slice( $logs, -99 );
+		}
+
+		$logs[] = array(
+			'time'    => current_time( 'mysql' ),
+			'type'    => $type,
+			'message' => $message,
+			'data'    => $data,
+		);
+
+		update_option( self::DEBUG_LOG, $logs, false );
+	}
+
+	/**
+	 * Get debug logs.
+	 *
+	 * @return array Debug logs.
+	 */
+	public static function get_debug_logs() {
+		return get_option( self::DEBUG_LOG, array() );
+	}
+
+	/**
+	 * Clear debug logs.
+	 */
+	public static function clear_debug_logs() {
+		delete_option( self::DEBUG_LOG );
+	}
+
+	/**
+	 * AJAX: Log debug message from JavaScript.
+	 */
+	public function ajax_log_debug() {
+		check_ajax_referer( 'am_media_folders', 'nonce' );
+
+		$message = isset( $_POST['message'] ) ? sanitize_text_field( $_POST['message'] ) : '';
+		$type = isset( $_POST['type'] ) ? sanitize_text_field( $_POST['type'] ) : 'info';
+		$data = isset( $_POST['data'] ) ? $_POST['data'] : array();
+
+		self::debug_log( '[JS] ' . $message, $type, $data );
+
+		wp_send_json_success();
+	}
+
+	/**
+	 * AJAX: Clear debug logs.
+	 */
+	public function ajax_clear_debug() {
+		check_ajax_referer( 'am_media_folders', 'nonce' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => 'Permission denied' ) );
+		}
+
+		self::clear_debug_logs();
+
+		wp_send_json_success();
 	}
 }

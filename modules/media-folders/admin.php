@@ -33,6 +33,9 @@ if ( $uncategorized_query->have_posts() ) {
 	$uncategorized_count = $uncategorized_query->post_count;
 }
 wp_reset_postdata();
+
+// Get debug logs.
+$debug_logs = AM_Media_Folders::get_debug_logs();
 ?>
 
 <div class="wrap am-admin-wrap">
@@ -41,6 +44,87 @@ wp_reset_postdata();
 	<p class="description">
 		<?php esc_html_e( 'Organize your WordPress media library with virtual folders. Drag and drop media files between folders directly in the media library.', 'admin-manager' ); ?>
 	</p>
+
+	<!-- Debug Dashboard -->
+	<div class="am-debug-dashboard" style="background: #fff; border: 2px solid #dc3545; border-radius: 8px; padding: 20px; margin: 20px 0;">
+		<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+			<h2 style="margin: 0; color: #dc3545;">
+				<span class="dashicons dashicons-warning" style="font-size: 24px;"></span>
+				Debug Log Dashboard
+			</h2>
+			<button type="button" id="am-clear-debug-logs" class="button button-secondary">Clear Logs</button>
+		</div>
+
+		<p style="margin: 0 0 15px 0;">
+			<strong>Status:</strong> This dashboard shows all operations happening when you try to add files to folders.
+			If nothing appears here when you click "Add Files", that means the button isn't working.
+		</p>
+
+		<div id="am-debug-logs-container" style="max-height: 400px; overflow-y: auto; background: #f5f5f5; padding: 15px; border-radius: 4px;">
+			<?php if ( ! empty( $debug_logs ) ) : ?>
+				<?php foreach ( array_reverse( $debug_logs ) as $log ) : ?>
+					<?php
+					$color_map = array(
+						'success' => '#28a745',
+						'error'   => '#dc3545',
+						'warning' => '#ffc107',
+						'info'    => '#17a2b8',
+					);
+					$color = isset( $color_map[ $log['type'] ] ) ? $color_map[ $log['type'] ] : '#6c757d';
+					?>
+					<div style="margin-bottom: 10px; padding: 10px; background: white; border-left: 4px solid <?php echo esc_attr( $color ); ?>; border-radius: 4px;">
+						<div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+							<strong style="color: <?php echo esc_attr( $color ); ?>; text-transform: uppercase; font-size: 11px;">
+								<?php echo esc_html( $log['type'] ); ?>
+							</strong>
+							<span style="color: #6c757d; font-size: 11px;">
+								<?php echo esc_html( $log['time'] ); ?>
+							</span>
+						</div>
+						<div style="color: #333;">
+							<?php echo esc_html( $log['message'] ); ?>
+						</div>
+						<?php if ( ! empty( $log['data'] ) ) : ?>
+							<details style="margin-top: 5px;">
+								<summary style="cursor: pointer; color: #6c757d; font-size: 11px;">View Data</summary>
+								<pre style="margin: 5px 0 0 0; padding: 10px; background: #f8f9fa; font-size: 11px; overflow-x: auto;"><?php echo esc_html( print_r( $log['data'], true ) ); ?></pre>
+							</details>
+						<?php endif; ?>
+					</div>
+				<?php endforeach; ?>
+			<?php else : ?>
+				<div style="text-align: center; padding: 40px; color: #6c757d;">
+					<span class="dashicons dashicons-info" style="font-size: 48px; opacity: 0.5;"></span>
+					<p style="margin: 10px 0 0 0;">No debug logs yet. Try clicking "Add Files" on a folder to see activity here.</p>
+				</div>
+			<?php endif; ?>
+		</div>
+
+		<p style="margin: 15px 0 0 0; font-size: 12px; color: #6c757d;">
+			<strong>Auto-refresh:</strong> Logs auto-refresh every 5 seconds. Total logs: <?php echo esc_html( count( $debug_logs ) ); ?>/100
+		</p>
+	</div>
+
+	<script>
+	jQuery(document).ready(function($) {
+		// Clear debug logs
+		$('#am-clear-debug-logs').on('click', function() {
+			if (!confirm('Clear all debug logs?')) return;
+
+			$.post(ajaxurl, {
+				action: 'am_clear_debug',
+				nonce: '<?php echo esc_js( wp_create_nonce( 'am_media_folders' ) ); ?>'
+			}, function() {
+				location.reload();
+			});
+		});
+
+		// Auto-refresh logs every 5 seconds
+		setInterval(function() {
+			location.reload();
+		}, 5000);
+	});
+	</script>
 
 	<div class="am-media-folders-info" style="margin-top: 30px;">
 		<h2><?php esc_html_e( 'How to Use', 'admin-manager' ); ?></h2>
