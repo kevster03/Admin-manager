@@ -400,11 +400,15 @@ class AM_Media_Folders {
 		}
 
 		if ( $folder_id > 0 ) {
-			wp_set_object_terms( $attachment_id, $folder_id, self::TAXONOMY );
+			// Use false as 4th parameter to REPLACE (not append) - ensures file is only in one folder
+			wp_set_object_terms( $attachment_id, $folder_id, self::TAXONOMY, false );
 		} else {
 			// Remove from all folders
 			wp_delete_object_term_relationships( $attachment_id, self::TAXONOMY );
 		}
+
+		// Clear cache
+		wp_cache_delete( 'am_media_folders_tree' );
 
 		wp_send_json_success();
 	}
@@ -426,15 +430,31 @@ class AM_Media_Folders {
 			wp_send_json_error( array( 'message' => __( 'No media items selected.', 'admin-manager' ) ) );
 		}
 
+		$moved_count = 0;
 		foreach ( $attachment_ids as $attachment_id ) {
 			if ( $folder_id > 0 ) {
-				wp_set_object_terms( $attachment_id, $folder_id, self::TAXONOMY );
+				// Use false as 4th parameter to REPLACE (not append) terms - ensures file is only in one folder
+				$result = wp_set_object_terms( $attachment_id, $folder_id, self::TAXONOMY, false );
+				if ( ! is_wp_error( $result ) ) {
+					$moved_count++;
+				}
 			} else {
 				wp_delete_object_term_relationships( $attachment_id, self::TAXONOMY );
+				$moved_count++;
 			}
 		}
 
-		wp_send_json_success( array( 'count' => count( $attachment_ids ) ) );
+		// Clear cache after bulk move
+		wp_cache_delete( 'am_media_folders_tree' );
+
+		wp_send_json_success( array(
+			'count' => $moved_count,
+			'message' => sprintf(
+				/* translators: %d: Number of files moved */
+				_n( '%d file moved successfully', '%d files moved successfully', $moved_count, 'admin-manager' ),
+				$moved_count
+			)
+		) );
 	}
 
 	/**
@@ -503,10 +523,14 @@ class AM_Media_Folders {
 			$folder_id = intval( $attachment['media_folder'] );
 
 			if ( $folder_id > 0 ) {
-				wp_set_object_terms( $post['ID'], $folder_id, self::TAXONOMY );
+				// Use false as 4th parameter to REPLACE (not append) - ensures file is only in one folder
+				wp_set_object_terms( $post['ID'], $folder_id, self::TAXONOMY, false );
 			} else {
 				wp_delete_object_term_relationships( $post['ID'], self::TAXONOMY );
 			}
+
+			// Clear cache
+			wp_cache_delete( 'am_media_folders_tree' );
 		}
 
 		return $post;
@@ -592,7 +616,8 @@ class AM_Media_Folders {
 
 				if ( $folder_id > 0 ) {
 					foreach ( $post_ids as $post_id ) {
-						wp_set_object_terms( $post_id, $folder_id, self::TAXONOMY );
+						// Use false as 4th parameter to REPLACE (not append) - ensures file is only in one folder
+						wp_set_object_terms( $post_id, $folder_id, self::TAXONOMY, false );
 						$count++;
 					}
 				}

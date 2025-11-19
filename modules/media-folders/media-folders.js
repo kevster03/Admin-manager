@@ -465,11 +465,25 @@
 			// Use WordPress media library modal
 			if (typeof wp !== 'undefined' && wp.media) {
 				const frame = wp.media({
-					title: `Add Files to ${folderName}`,
+					title: `Add Files to: ${folderName}`,
 					button: {
 						text: 'Add to Folder'
 					},
-					multiple: true
+					multiple: true,
+					library: {
+						type: 'image,video,audio,application',
+						media_folder: -1  // -1 means uncategorized only
+					}
+				});
+
+				// Filter to show only uncategorized files
+				frame.on('open', function() {
+					const library = frame.state().get('library');
+					if (library) {
+						library.props.set({
+							media_folder: -1  // Only uncategorized files
+						});
+					}
 				});
 
 				frame.on('select', function() {
@@ -477,11 +491,15 @@
 					const attachmentIds = attachments.map(a => a.id);
 
 					if (attachmentIds.length > 0) {
+						console.log('Moving files:', attachmentIds, 'to folder:', folderId);
 						self.bulkMoveMedia(attachmentIds, folderId, folderName);
 					}
 				});
 
 				frame.open();
+			} else {
+				console.error('WordPress media library not available');
+				alert('Error: WordPress media library not loaded');
 			}
 		},
 
@@ -493,6 +511,14 @@
 		 * @param {string} folderName Folder name.
 		 */
 		bulkMoveMedia(attachmentIds, folderId, folderName) {
+			console.log('bulkMoveMedia called with:', {
+				attachmentIds: attachmentIds,
+				folderId: folderId,
+				folderName: folderName,
+				ajaxUrl: amMediaFolders.ajaxUrl,
+				nonce: amMediaFolders.nonce
+			});
+
 			$.ajax({
 				url: amMediaFolders.ajaxUrl,
 				type: 'POST',
@@ -503,15 +529,19 @@
 					folder_id: folderId
 				},
 				success: (response) => {
+					console.log('AJAX response:', response);
 					if (response.success) {
 						// Refresh the page to show updated counts
+						alert(`Successfully moved ${attachmentIds.length} file(s) to ${folderName}`);
 						location.reload();
 					} else {
+						console.error('Move failed:', response);
 						alert(response.data.message || 'Error moving files');
 					}
 				},
-				error: () => {
-					alert('Error moving files to folder');
+				error: (xhr, status, error) => {
+					console.error('AJAX error:', {xhr, status, error});
+					alert('Error moving files to folder. Check console for details.');
 				}
 			});
 		},
