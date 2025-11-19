@@ -534,17 +534,65 @@ class AM_Media_Folders {
 			wp_send_json_error( array( 'message' => __( 'No media items selected.', 'admin-manager' ) ) );
 		}
 
+		// Verify folder exists
+		if ( $folder_id > 0 ) {
+			$folder_term = get_term( $folder_id, self::TAXONOMY );
+			if ( is_wp_error( $folder_term ) || ! $folder_term ) {
+				self::debug_log( "CRITICAL ERROR: Folder {$folder_id} does NOT exist!", 'error', array(
+					'folder_id'    => $folder_id,
+					'error'        => is_wp_error( $folder_term ) ? $folder_term->get_error_message() : 'Term not found',
+					'taxonomy'     => self::TAXONOMY,
+				) );
+				wp_send_json_error( array( 'message' => 'Invalid folder ID' ) );
+			}
+
+			self::debug_log( "Folder verified: {$folder_term->name} (ID: {$folder_id})", 'success', array(
+				'folder_id'   => $folder_id,
+				'folder_name' => $folder_term->name,
+				'taxonomy'    => self::TAXONOMY,
+			) );
+		}
+
 		$moved_count = 0;
 		foreach ( $attachment_ids as $attachment_id ) {
+			// Verify attachment exists
+			$attachment = get_post( $attachment_id );
+			if ( ! $attachment || 'attachment' !== $attachment->post_type ) {
+				self::debug_log( "SKIP: Attachment {$attachment_id} does not exist or is not an attachment", 'warning', array(
+					'attachment_id' => $attachment_id,
+					'post_type'     => $attachment ? $attachment->post_type : 'null',
+				) );
+				continue;
+			}
+
+			// Get current terms BEFORE move
+			$terms_before = wp_get_object_terms( $attachment_id, self::TAXONOMY, array( 'fields' => 'ids' ) );
+
 			if ( $folder_id > 0 ) {
 				// Use false as 4th parameter to REPLACE (not append) terms - ensures file is only in one folder
 				$result = wp_set_object_terms( $attachment_id, $folder_id, self::TAXONOMY, false );
-				if ( ! is_wp_error( $result ) ) {
+
+				// Get terms AFTER move to verify
+				$terms_after = wp_get_object_terms( $attachment_id, self::TAXONOMY, array( 'fields' => 'ids' ) );
+
+				if ( ! is_wp_error( $result ) && ! empty( $terms_after ) && in_array( $folder_id, $terms_after, true ) ) {
 					$moved_count++;
-					self::debug_log( "Moved attachment {$attachment_id} to folder {$folder_id}", 'success' );
+					self::debug_log( "✓ VERIFIED: Attachment {$attachment_id} successfully assigned to folder {$folder_id}", 'success', array(
+						'attachment_id'  => $attachment_id,
+						'folder_id'      => $folder_id,
+						'terms_before'   => $terms_before,
+						'terms_after'    => $terms_after,
+						'wp_set_result'  => $result,
+					) );
 				} else {
-					self::debug_log( "Failed to move attachment {$attachment_id}", 'error', array(
-						'error' => $result->get_error_message(),
+					self::debug_log( "✗ FAILED: Attachment {$attachment_id} was NOT assigned to folder!", 'error', array(
+						'attachment_id'  => $attachment_id,
+						'folder_id'      => $folder_id,
+						'terms_before'   => $terms_before,
+						'terms_after'    => $terms_after,
+						'wp_set_result'  => $result,
+						'is_error'       => is_wp_error( $result ),
+						'error_message'  => is_wp_error( $result ) ? $result->get_error_message() : 'No error but terms not set',
 					) );
 				}
 			} else {
