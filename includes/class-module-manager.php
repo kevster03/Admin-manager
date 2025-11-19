@@ -51,7 +51,7 @@ class AM_Module_Manager {
 			),
 			'reading-time'        => array(
 				'name'        => __( 'Reading Time', 'admin-manager' ),
-				'description' => __( 'Calculate and display estimated reading time for posts with progress bar.', 'admin-manager' ),
+				'description' => __( 'Calculate and display estimated reading time for posts.', 'admin-manager' ),
 				'file'        => 'reading-time/class-reading-time.php',
 				'class'       => 'AM_Reading_Time',
 			),
@@ -60,12 +60,6 @@ class AM_Module_Manager {
 				'description' => __( 'Automatically generate a table of contents from post headings with anchor links.', 'admin-manager' ),
 				'file'        => 'table-of-contents/class-table-of-contents.php',
 				'class'       => 'AM_Table_Of_Contents',
-			),
-			'custom-login'        => array(
-				'name'        => __( 'Custom Login', 'admin-manager' ),
-				'description' => __( 'Customize WordPress login page with logo, colors, and branding.', 'admin-manager' ),
-				'file'        => 'custom-login/class-custom-login.php',
-				'class'       => 'AM_Custom_Login',
 			),
 			'performance'         => array(
 				'name'        => __( 'Performance', 'admin-manager' ),

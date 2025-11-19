@@ -24,7 +24,6 @@ class AM_Admin {
 		add_action( 'admin_menu', array( $this, 'add_admin_menu' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
 		add_action( 'admin_init', array( $this, 'handle_module_toggle' ) );
-		add_action( 'admin_init', array( $this, 'handle_safe_mode_toggle' ) );
 		add_filter( 'plugin_action_links_' . AM_PLUGIN_BASENAME, array( $this, 'add_action_links' ) );
 	}
 
@@ -167,40 +166,6 @@ class AM_Admin {
 		exit;
 	}
 
-	/**
-	 * Handle safe mode toggle.
-	 */
-	public function handle_safe_mode_toggle() {
-		if ( ! isset( $_POST['am_toggle_safe_mode'] ) ) {
-			return;
-		}
-
-		// Verify nonce.
-		if ( ! am_verify_nonce( 'am_safe_mode_nonce', 'am_toggle_safe_mode' ) ) {
-			wp_die( esc_html__( 'Security check failed.', 'admin-manager' ) );
-		}
-
-		// Check permissions.
-		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'You do not have permission to perform this action.', 'admin-manager' ) );
-		}
-
-		// Toggle safe mode.
-		$safe_mode = isset( $_POST['am_safe_mode'] ) ? (bool) $_POST['am_safe_mode'] : false;
-		am_update_setting( 'safe_mode', $safe_mode );
-
-		// Redirect with success message.
-		wp_safe_redirect(
-			add_query_arg(
-				array(
-					'page'    => 'admin-manager',
-					'updated' => 'true',
-				),
-				admin_url( 'admin.php' )
-			)
-		);
-		exit;
-	}
 
 	/**
 	 * Render modules page.
@@ -208,7 +173,6 @@ class AM_Admin {
 	public function render_modules_page() {
 		$modules         = AM_Plugin::instance()->module_manager->get_modules();
 		$enabled_modules = am_get_settings( 'modules_enabled', array() );
-		$safe_mode       = am_is_safe_mode();
 		?>
 		<div class="wrap am-admin-wrap">
 			<h1><?php esc_html_e( 'Admin Manager', 'admin-manager' ); ?></h1>
@@ -224,30 +188,6 @@ class AM_Admin {
 					<?php esc_html_e( 'Enable or disable modules below. Only enabled modules will be loaded, keeping your site lightweight and fast.', 'admin-manager' ); ?>
 				</p>
 			</div>
-
-			<!-- Safe Mode Toggle -->
-			<div class="am-safe-mode-section">
-				<form method="post" action="">
-					<?php wp_nonce_field( 'am_toggle_safe_mode', 'am_safe_mode_nonce' ); ?>
-					<h2><?php esc_html_e( 'Safe Mode', 'admin-manager' ); ?></h2>
-					<p class="description">
-						<?php esc_html_e( 'When enabled, changes from Script Manager and other modules only apply to logged-in administrators. This allows you to test settings safely before applying to all visitors.', 'admin-manager' ); ?>
-					</p>
-					<label class="am-toggle-label">
-						<input type="checkbox" name="am_safe_mode" value="1" <?php checked( $safe_mode, true ); ?>>
-						<span class="am-toggle-text">
-							<?php esc_html_e( 'Enable Safe Mode (changes only apply to admins)', 'admin-manager' ); ?>
-						</span>
-					</label>
-					<p>
-						<button type="submit" name="am_toggle_safe_mode" class="button button-secondary">
-							<?php esc_html_e( 'Update Safe Mode', 'admin-manager' ); ?>
-						</button>
-					</p>
-				</form>
-			</div>
-
-			<hr>
 
 			<!-- Modules List -->
 			<form method="post" action="">
