@@ -1,0 +1,264 @@
+/**
+ * Admin Manager - Media Folders Styles
+ *
+ * @package AdminManager
+ */
+
+/* Folder Sidebar */
+.am-folders-sidebar {
+	position: fixed;
+	left: 160px;
+	top: 32px;
+	width: 250px;
+	height: calc(100vh - 32px);
+	background: #fff;
+	border-right: 1px solid #ddd;
+	overflow-y: auto;
+	z-index: 100;
+	box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
+}
+
+/* Adjust content when sidebar is present */
+body.upload-php .wrap {
+	margin-left: 250px;
+}
+
+.media-frame .am-folders-sidebar {
+	position: absolute;
+	left: 0;
+	top: 0;
+	height: 100%;
+}
+
+.media-frame-content {
+	margin-left: 250px !important;
+}
+
+/* Folder Header */
+.am-folders-header {
+	padding: 15px;
+	border-bottom: 1px solid #ddd;
+	background: #f9f9f9;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.am-folders-header h3 {
+	margin: 0;
+	font-size: 14px;
+	font-weight: 600;
+	color: #333;
+}
+
+.am-folders-header .button {
+	padding: 4px 8px;
+	font-size: 12px;
+	height: auto;
+	line-height: 1.4;
+}
+
+.am-folders-header .dashicons {
+	font-size: 14px;
+	width: 14px;
+	height: 14px;
+	line-height: 1.4;
+}
+
+/* Folder Items */
+.am-folder-item {
+	display: flex;
+	align-items: center;
+	padding: 10px 15px;
+	cursor: pointer;
+	border-bottom: 1px solid #f0f0f0;
+	transition: background-color 0.2s ease;
+	position: relative;
+}
+
+.am-folder-item:hover {
+	background: #f5f5f5;
+}
+
+.am-folder-item.active {
+	background: #e3f2fd;
+	border-left: 3px solid #2196f3;
+	padding-left: 12px;
+}
+
+.am-folder-item.drag-over {
+	background: #fff3cd;
+	border: 2px dashed #ffc107;
+}
+
+/* Folder Icons */
+.am-folder-icon {
+	font-size: 16px;
+	width: 20px;
+	height: 20px;
+	color: #666;
+	flex-shrink: 0;
+}
+
+.am-folder-item.active .am-folder-icon {
+	color: #2196f3;
+}
+
+/* Folder Toggle */
+.am-folder-toggle {
+	width: 20px;
+	height: 20px;
+	margin-right: 5px;
+	cursor: pointer;
+	flex-shrink: 0;
+}
+
+.am-folder-toggle .dashicons {
+	font-size: 14px;
+	width: 14px;
+	height: 14px;
+	color: #999;
+	transition: transform 0.2s ease;
+}
+
+.am-folder-toggle:not(.has-children) {
+	visibility: hidden;
+}
+
+/* Folder Name */
+.am-folder-name {
+	flex: 1;
+	margin: 0 8px;
+	font-size: 13px;
+	color: #333;
+	font-weight: 500;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.am-folder-item.active .am-folder-name {
+	color: #2196f3;
+	font-weight: 600;
+}
+
+/* Folder Count */
+.am-folder-count {
+	background: #e0e0e0;
+	color: #666;
+	font-size: 11px;
+	padding: 2px 6px;
+	border-radius: 10px;
+	margin-right: 5px;
+	font-weight: 600;
+	flex-shrink: 0;
+}
+
+.am-folder-item.active .am-folder-count {
+	background: #2196f3;
+	color: #fff;
+}
+
+/* Folder Actions */
+.am-folder-actions {
+	display: none;
+	gap: 4px;
+	flex-shrink: 0;
+}
+
+.am-folder-item:hover .am-folder-actions {
+	display: flex;
+}
+
+.am-folder-action {
+	background: transparent;
+	border: none;
+	padding: 2px;
+	cursor: pointer;
+	border-radius: 3px;
+	transition: background-color 0.2s ease;
+}
+
+.am-folder-action:hover {
+	background: rgba(0, 0, 0, 0.1);
+}
+
+.am-folder-action .dashicons {
+	font-size: 14px;
+	width: 14px;
+	height: 14px;
+	color: #666;
+}
+
+.am-folder-action:hover .dashicons {
+	color: #333;
+}
+
+.am-delete-folder:hover .dashicons {
+	color: #dc3545;
+}
+
+/* Folder Tree Children */
+.am-folder-children {
+	max-height: 1000px;
+	overflow: hidden;
+	transition: max-height 0.3s ease-out;
+}
+
+.am-folder-children.collapsed {
+	max-height: 0;
+}
+
+/* Special Folders */
+.am-folder-all,
+.am-folder-uncategorized {
+	font-weight: 600;
+}
+
+.am-folder-all .am-folder-icon {
+	color: #2196f3;
+}
+
+.am-folder-uncategorized .am-folder-icon {
+	color: #ff9800;
+}
+
+/* Responsive */
+@media screen and (max-width: 782px) {
+	.am-folders-sidebar {
+		left: 0;
+		width: 200px;
+	}
+
+	body.upload-php .wrap {
+		margin-left: 200px;
+	}
+
+	.media-frame-content {
+		margin-left: 200px !important;
+	}
+}
+
+/* Admin bar offset */
+body.admin-bar .am-folders-sidebar {
+	top: 46px;
+	height: calc(100vh - 46px);
+}
+
+@media screen and (min-width: 783px) {
+	body.admin-bar .am-folders-sidebar {
+		top: 32px;
+		height: calc(100vh - 32px);
+	}
+}
+
+/* Folded menu offset */
+body.folded .am-folders-sidebar {
+	left: 36px;
+}
+
+@media screen and (min-width: 961px) {
+	body.folded .am-folders-sidebar {
+		left: 36px;
+	}
+}
