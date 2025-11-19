@@ -292,18 +292,10 @@ class AM_Media_Folders {
 	 * @param WP_Query $query The WP_Query instance.
 	 */
 	public function filter_media_grid_by_folder( $query ) {
-		// Only filter in admin area
-		if ( ! is_admin() ) {
-			return;
-		}
-
-		// Only filter attachment queries
-		if ( ! isset( $query->query_vars['post_type'] ) || 'attachment' !== $query->query_vars['post_type'] ) {
-			return;
-		}
-
 		global $pagenow;
-		if ( 'upload.php' !== $pagenow ) {
+
+		// Only run on upload.php in admin
+		if ( ! is_admin() || 'upload.php' !== $pagenow ) {
 			return;
 		}
 
@@ -312,9 +304,20 @@ class AM_Media_Folders {
 			return;
 		}
 
+		// Check if this is an attachment query (but don't require it to be set yet)
+		$post_type = $query->get( 'post_type' );
+		if ( $post_type && 'attachment' !== $post_type ) {
+			return;
+		}
+
+		// Force post_type to attachment if not set
+		if ( ! $post_type ) {
+			$query->set( 'post_type', 'attachment' );
+		}
+
 		$folder_id = intval( $_GET['media_folder'] );
 
-		// Get folder details
+		// Get folder details for logging
 		$folder = get_term( $folder_id, self::TAXONOMY );
 		$folder_name = $folder && ! is_wp_error( $folder ) ? $folder->name : 'Unknown';
 
