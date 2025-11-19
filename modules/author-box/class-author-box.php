@@ -75,13 +75,6 @@ class AM_Author_Box {
 	 * @return string Author box HTML.
 	 */
 	public function get_author_box_html( $author_id, $post_id = null ) {
-		// Check cache first (safe for caching plugins - uses unique prefix).
-		$cache_key = 'am_ab_' . $author_id . '_' . ( $post_id ? $post_id : '0' );
-		$cached = get_transient( $cache_key );
-		if ( false !== $cached ) {
-			return $cached;
-		}
-
 		$settings = am_get_module_setting( 'author-box' );
 		$show_avatar = isset( $settings['show_avatar'] ) ? $settings['show_avatar'] : true;
 		$show_social = isset( $settings['show_social'] ) ? $settings['show_social'] : true;
@@ -97,6 +90,16 @@ class AM_Author_Box {
 		$border_width = isset( $settings['border_width'] ) ? absint( $settings['border_width'] ) : 1;
 		$border_radius = isset( $settings['border_radius'] ) ? absint( $settings['border_radius'] ) : 8;
 		$padding = isset( $settings['padding'] ) ? absint( $settings['padding'] ) : 20;
+		$badge_bg_color = isset( $settings['badge_bg_color'] ) ? sanitize_hex_color( $settings['badge_bg_color'] ) : $border_color;
+		$badge_text_color = isset( $settings['badge_text_color'] ) ? sanitize_hex_color( $settings['badge_text_color'] ) : '#ffffff';
+
+		// Check cache (includes settings hash so color changes create new cache).
+		$settings_hash = md5( serialize( array( $bg_color, $text_color, $border_color, $border_width, $border_radius, $padding, $badge_bg_color, $badge_text_color, $layout, $size, $show_avatar, $show_social, $show_badges ) ) );
+		$cache_key = 'am_ab_' . $author_id . '_' . ( $post_id ? $post_id : '0' ) . '_' . substr( $settings_hash, 0, 8 );
+		$cached = get_transient( $cache_key );
+		if ( false !== $cached ) {
+			return $cached;
+		}
 
 		// Get custom bio if set for this post.
 		$custom_bio = '';
@@ -141,6 +144,8 @@ class AM_Author_Box {
 			'border_width'      => $border_width,
 			'border_radius'     => $border_radius,
 			'padding'           => $padding,
+			'badge_bg_color'    => $badge_bg_color,
+			'badge_text_color'  => $badge_text_color,
 			'twitter'           => $twitter,
 			'linkedin'          => $linkedin,
 			'facebook'          => $facebook,
@@ -217,7 +222,7 @@ class AM_Author_Box {
 
 		// Expertise badges
 		if ( $show_badges && ! empty( $badges_array ) ) {
-			$html .= $this->render_badges( $badges_array, $border_color );
+			$html .= $this->render_badges( $badges_array, $badge_bg_color, $badge_text_color );
 		}
 
 		if ( ! empty( $bio ) ) {
@@ -275,7 +280,7 @@ class AM_Author_Box {
 
 		// Expertise badges
 		if ( $show_badges && ! empty( $badges_array ) ) {
-			$html .= '<div style="display: flex; justify-content: center; margin-bottom: 15px;">' . $this->render_badges( $badges_array, $border_color ) . '</div>';
+			$html .= '<div style="display: flex; justify-content: center; margin-bottom: 15px;">' . $this->render_badges( $badges_array, $badge_bg_color, $badge_text_color ) . '</div>';
 		}
 
 		if ( ! empty( $bio ) ) {
@@ -333,7 +338,7 @@ class AM_Author_Box {
 
 		// Expertise badges
 		if ( $show_badges && ! empty( $badges_array ) ) {
-			$html .= '<div style="display: flex; justify-content: center; margin-bottom: 15px;">' . $this->render_badges( $badges_array, $border_color ) . '</div>';
+			$html .= '<div style="display: flex; justify-content: center; margin-bottom: 15px;">' . $this->render_badges( $badges_array, $badge_bg_color, $badge_text_color ) . '</div>';
 		}
 
 		if ( ! empty( $bio ) ) {
@@ -394,17 +399,18 @@ class AM_Author_Box {
 	 * Render expertise badges HTML.
 	 *
 	 * @param array  $badges_array Array of badge labels.
-	 * @param string $border_color Border color.
+	 * @param string $badge_bg_color Badge background color.
+	 * @param string $badge_text_color Badge text color.
 	 * @return string Badges HTML.
 	 */
-	private function render_badges( $badges_array, $border_color ) {
+	private function render_badges( $badges_array, $badge_bg_color, $badge_text_color ) {
 		$html = '<div class="am-author-badges" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">';
 
 		foreach ( $badges_array as $badge ) {
 			if ( empty( $badge ) ) {
 				continue;
 			}
-			$html .= '<span style="background-color: ' . esc_attr( $border_color ) . '; color: #fff; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; letter-spacing: 0.3px;">' . esc_html( $badge ) . '</span>';
+			$html .= '<span style="background-color: ' . esc_attr( $badge_bg_color ) . '; color: ' . esc_attr( $badge_text_color ) . '; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; letter-spacing: 0.3px;">' . esc_html( $badge ) . '</span>';
 		}
 
 		$html .= '</div>';
