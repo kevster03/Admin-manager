@@ -25,12 +25,235 @@ class AM_Custom_Login {
 		add_filter( 'login_headerurl', array( $this, 'custom_logo_url' ) );
 		add_filter( 'login_headertext', array( $this, 'custom_logo_title' ) );
 		add_filter( 'login_head', array( $this, 'add_custom_css' ) );
-
-		// Custom login URL.
-		add_action( 'plugins_loaded', array( $this, 'custom_login_url' ) );
-		add_filter( 'site_url', array( $this, 'change_login_url' ), 10, 4 );
-		add_filter( 'wp_redirect', array( $this, 'change_redirect_url' ), 10, 2 );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_media_uploader' ) );
+
+		// Custom login URL (secure implementation).
+		$this->init_custom_login_url();
+	}
+
+	/**
+	 * Initialize custom login URL functionality.
+	 */
+	private function init_custom_login_url() {
+		$settings = am_get_module_setting( 'custom-login' );
+		$custom_slug = isset( $settings['custom_login_slug'] ) ? sanitize_title( $settings['custom_login_slug'] ) : '';
+
+		// Only proceed if custom slug is set.
+		if ( empty( $custom_slug ) || 'wp-login' === $custom_slug ) {
+			return;
+		}
+
+		// Add custom rewrite rule.
+		add_action( 'init', array( $this, 'add_custom_login_rewrite' ) );
+
+		// Filter login URL.
+		add_filter( 'login_url', array( $this, 'custom_login_url_filter' ), 10, 3 );
+		add_filter( 'site_url', array( $this, 'custom_login_url_filter_site_url' ), 10, 4 );
+		add_filter( 'wp_redirect', array( $this, 'custom_login_url_filter_redirect' ), 10, 2 );
+
+		// Block direct access to wp-login.php.
+		add_action( 'login_init', array( $this, 'block_default_login_url' ) );
+
+		// Parse request for custom login slug.
+		add_action( 'parse_request', array( $this, 'parse_custom_login_request' ) );
+
+		// Add admin notice.
+		add_action( 'admin_notices', array( $this, 'admin_notice_custom_url' ) );
+	}
+
+	/**
+	 * Add custom login rewrite rule.
+	 */
+	public function add_custom_login_rewrite() {
+		$settings = am_get_module_setting( 'custom-login' );
+		$custom_slug = isset( $settings['custom_login_slug'] ) ? sanitize_title( $settings['custom_login_slug'] ) : '';
+
+		if ( empty( $custom_slug ) ) {
+			return;
+		}
+
+		add_rewrite_rule( '^' . $custom_slug . '/?$', 'index.php?am_custom_login=1', 'top' );
+		add_rewrite_tag( '%am_custom_login%', '([^&]+)' );
+
+		// Flush rewrite rules if needed (only once after activation).
+		if ( get_option( 'am_custom_login_flush_rewrite' ) ) {
+			flush_rewrite_rules();
+			delete_option( 'am_custom_login_flush_rewrite' );
+		}
+	}
+
+	/**
+	 * Parse custom login request.
+	 *
+	 * @param WP $wp WordPress environment object.
+	 */
+	public function parse_custom_login_request( $wp ) {
+		if ( ! isset( $wp->query_vars['am_custom_login'] ) ) {
+			return;
+		}
+
+		// Show login page.
+		if ( is_user_logged_in() ) {
+			wp_safe_redirect( admin_url() );
+			exit;
+		}
+
+		// Set $pagenow global for wp-login.php.
+		global $pagenow;
+		$pagenow = 'wp-login.php';
+
+		// Include wp-login.php.
+		require_once ABSPATH . 'wp-login.php';
+		exit;
+	}
+
+	/**
+	 * Filter login URL.
+	 *
+	 * @param string $login_url Login URL.
+	 * @param string $redirect Redirect URL.
+	 * @param bool   $force_reauth Force reauth.
+	 * @return string Modified login URL.
+	 */
+	public function custom_login_url_filter( $login_url, $redirect = '', $force_reauth = false ) {
+		$settings = am_get_module_setting( 'custom-login' );
+		$custom_slug = isset( $settings['custom_login_slug'] ) ? sanitize_title( $settings['custom_login_slug'] ) : '';
+
+		if ( empty( $custom_slug ) ) {
+			return $login_url;
+		}
+
+		$login_url = home_url( '/' . $custom_slug . '/' );
+
+		if ( ! empty( $redirect ) ) {
+			$login_url = add_query_arg( 'redirect_to', urlencode( $redirect ), $login_url );
+		}
+
+		if ( $force_reauth ) {
+			$login_url = add_query_arg( 'reauth', '1', $login_url );
+		}
+
+		return $login_url;
+	}
+
+	/**
+	 * Filter site URL for login.
+	 *
+	 * @param string $url URL.
+	 * @param string $path Path.
+	 * @param string $scheme Scheme.
+	 * @param int    $blog_id Blog ID.
+	 * @return string Modified URL.
+	 */
+	public function custom_login_url_filter_site_url( $url, $path, $scheme, $blog_id ) {
+		// Only filter wp-login.php URLs.
+		if ( false === strpos( $url, 'wp-login.php' ) ) {
+			return $url;
+		}
+
+		$settings = am_get_module_setting( 'custom-login' );
+		$custom_slug = isset( $settings['custom_login_slug'] ) ? sanitize_title( $settings['custom_login_slug'] ) : '';
+
+		if ( empty( $custom_slug ) ) {
+			return $url;
+		}
+
+		// Replace wp-login.php with custom slug.
+		return str_replace( 'wp-login.php', $custom_slug, $url );
+	}
+
+	/**
+	 * Filter redirect URLs.
+	 *
+	 * @param string $location Redirect location.
+	 * @param int    $status Status code.
+	 * @return string Modified location.
+	 */
+	public function custom_login_url_filter_redirect( $location, $status ) {
+		// Only filter wp-login.php URLs.
+		if ( false === strpos( $location, 'wp-login.php' ) ) {
+			return $location;
+		}
+
+		$settings = am_get_module_setting( 'custom-login' );
+		$custom_slug = isset( $settings['custom_login_slug'] ) ? sanitize_title( $settings['custom_login_slug'] ) : '';
+
+		if ( empty( $custom_slug ) ) {
+			return $location;
+		}
+
+		// Replace wp-login.php with custom slug.
+		return str_replace( 'wp-login.php', $custom_slug, $location );
+	}
+
+	/**
+	 * Block direct access to default wp-login.php.
+	 */
+	public function block_default_login_url() {
+		$settings = am_get_module_setting( 'custom-login' );
+		$custom_slug = isset( $settings['custom_login_slug'] ) ? sanitize_title( $settings['custom_login_slug'] ) : '';
+
+		if ( empty( $custom_slug ) ) {
+			return;
+		}
+
+		// Allow if user is already logged in.
+		if ( is_user_logged_in() ) {
+			return;
+		}
+
+		// Allow AJAX requests.
+		if ( defined( 'DOING_AJAX' ) && DOING_AJAX ) {
+			return;
+		}
+
+		// Allow if coming from custom login URL.
+		$referer = isset( $_SERVER['HTTP_REFERER'] ) ? esc_url_raw( wp_unslash( $_SERVER['HTTP_REFERER'] ) ) : '';
+		if ( ! empty( $referer ) && false !== strpos( $referer, $custom_slug ) ) {
+			return;
+		}
+
+		// Allow specific actions (logout, lostpassword, etc.).
+		$allowed_actions = array( 'logout', 'lostpassword', 'retrievepassword', 'resetpass', 'rp', 'postpass' );
+		$action = isset( $_REQUEST['action'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['action'] ) ) : '';
+		if ( in_array( $action, $allowed_actions, true ) ) {
+			return;
+		}
+
+		// Block access to default wp-login.php.
+		global $pagenow;
+		if ( 'wp-login.php' === $pagenow && empty( $_GET['am_custom_login'] ) ) {
+			wp_safe_redirect( home_url( '/404/' ) );
+			exit;
+		}
+	}
+
+	/**
+	 * Display admin notice about custom login URL.
+	 */
+	public function admin_notice_custom_url() {
+		$settings = am_get_module_setting( 'custom-login' );
+		$custom_slug = isset( $settings['custom_login_slug'] ) ? sanitize_title( $settings['custom_login_slug'] ) : '';
+
+		if ( empty( $custom_slug ) ) {
+			return;
+		}
+
+		$current_screen = get_current_screen();
+		if ( $current_screen && 'admin-manager_page_admin-manager-custom-login' === $current_screen->id ) {
+			echo '<div class="notice notice-warning">';
+			echo '<p><strong>' . esc_html__( 'Important: Custom Login URL', 'admin-manager' ) . '</strong></p>';
+			echo '<p>';
+			printf(
+				/* translators: %s: Custom login URL */
+				esc_html__( 'Your login URL has been changed to: %s', 'admin-manager' ),
+				'<code>' . esc_html( home_url( $custom_slug ) ) . '</code>'
+			);
+			echo '</p>';
+			echo '<p>' . esc_html__( 'Please save this URL! You will need it to log in. If you forget it, you may be locked out.', 'admin-manager' ) . '</p>';
+			echo '<p><strong>' . esc_html__( 'Recovery:', 'admin-manager' ) . '</strong> ' . esc_html__( 'If you get locked out, access your site via FTP and disable the Admin Manager plugin.', 'admin-manager' ) . '</p>';
+			echo '</div>';
+		}
 	}
 
 	/**
@@ -123,97 +346,5 @@ class AM_Custom_Login {
 		if ( strpos( $hook, 'admin-manager' ) !== false ) {
 			wp_enqueue_media();
 		}
-	}
-
-	/**
-	 * Custom login URL handler.
-	 */
-	public function custom_login_url() {
-		$settings = am_get_module_setting( 'custom-login' );
-		$custom_slug = isset( $settings['custom_login_slug'] ) ? $settings['custom_login_slug'] : '';
-
-		// Only proceed if custom slug is set and not empty.
-		if ( empty( $custom_slug ) ) {
-			return;
-		}
-
-		// Sanitize the slug.
-		$custom_slug = sanitize_title( $custom_slug );
-
-		// Prevent access to default login URLs.
-		$request_uri = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '';
-
-		// Block direct access to wp-login.php.
-		if ( strpos( $request_uri, 'wp-login.php' ) !== false && ! isset( $_GET['action'] ) ) {
-			if ( ! is_user_logged_in() ) {
-				// Check if it's our custom URL.
-				if ( strpos( $request_uri, $custom_slug ) === false ) {
-					wp_safe_redirect( home_url( '/404' ) );
-					exit;
-				}
-			}
-		}
-
-		// Handle custom login URL.
-		if ( strpos( $request_uri, '/' . $custom_slug ) !== false ) {
-			// Allow access to login page via custom URL.
-			if ( ! is_user_logged_in() ) {
-				// Show login form.
-				require_once ABSPATH . 'wp-login.php';
-				exit;
-			} else {
-				// Already logged in, redirect to admin.
-				wp_safe_redirect( admin_url() );
-				exit;
-			}
-		}
-	}
-
-	/**
-	 * Change login URL in site_url.
-	 *
-	 * @param string $url URL.
-	 * @param string $path Path.
-	 * @param string $scheme Scheme.
-	 * @param int    $blog_id Blog ID.
-	 * @return string Modified URL.
-	 */
-	public function change_login_url( $url, $path, $scheme, $blog_id ) {
-		$settings = am_get_module_setting( 'custom-login' );
-		$custom_slug = isset( $settings['custom_login_slug'] ) ? $settings['custom_login_slug'] : '';
-
-		if ( empty( $custom_slug ) ) {
-			return $url;
-		}
-
-		// Replace wp-login.php with custom slug.
-		if ( strpos( $url, 'wp-login.php' ) !== false ) {
-			$url = str_replace( 'wp-login.php', $custom_slug, $url );
-		}
-
-		return $url;
-	}
-
-	/**
-	 * Change redirect URL after login.
-	 *
-	 * @param string $location Redirect location.
-	 * @param int    $status Status code.
-	 * @return string Modified location.
-	 */
-	public function change_redirect_url( $location, $status ) {
-		$settings = am_get_module_setting( 'custom-login' );
-		$custom_slug = isset( $settings['custom_login_slug'] ) ? $settings['custom_login_slug'] : '';
-
-		if ( empty( $custom_slug ) ) {
-			return $location;
-		}
-
-		// Replace wp-login.php in redirects.
-		if ( strpos( $location, 'wp-login.php' ) !== false ) {
-			$location = str_replace( 'wp-login.php', $custom_slug, $location );
-		}
-
-		return $location;
 	}
 }

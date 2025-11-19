@@ -29,6 +29,10 @@ class AM_Author_Box {
 		add_action( 'personal_options_update', array( $this, 'save_user_profile_fields' ) );
 		add_action( 'edit_user_profile_update', array( $this, 'save_user_profile_fields' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_scripts' ) );
+
+		// Clear cache when user profile is updated.
+		add_action( 'profile_update', array( $this, 'clear_cache_on_user_update' ) );
+		add_action( 'delete_user', array( $this, 'clear_cache_on_user_delete' ) );
 	}
 
 	/**
@@ -71,6 +75,13 @@ class AM_Author_Box {
 	 * @return string Author box HTML.
 	 */
 	public function get_author_box_html( $author_id, $post_id = null ) {
+		// Check cache first (safe for caching plugins - uses unique prefix).
+		$cache_key = 'am_ab_' . $author_id . '_' . ( $post_id ? $post_id : '0' );
+		$cached = get_transient( $cache_key );
+		if ( false !== $cached ) {
+			return $cached;
+		}
+
 		$settings = am_get_module_setting( 'author-box' );
 		$show_avatar = isset( $settings['show_avatar'] ) ? $settings['show_avatar'] : true;
 		$show_social = isset( $settings['show_social'] ) ? $settings['show_social'] : true;
@@ -96,15 +107,19 @@ class AM_Author_Box {
 		$bio = ! empty( $custom_bio ) ? $custom_bio : get_the_author_meta( 'description', $author_id );
 		$name = get_the_author_meta( 'display_name', $author_id );
 
-		// Social links - using custom user meta.
-		$twitter = get_user_meta( $author_id, 'am_twitter', true );
-		$linkedin = get_user_meta( $author_id, 'am_linkedin', true );
-		$facebook = get_user_meta( $author_id, 'am_facebook', true );
-		$instagram = get_user_meta( $author_id, 'am_instagram', true );
+		// Optimize: Get all user meta at once (1 query instead of 6).
+		$all_user_meta = get_user_meta( $author_id );
+
+		$twitter = isset( $all_user_meta['am_twitter'][0] ) ? $all_user_meta['am_twitter'][0] : '';
+		$linkedin = isset( $all_user_meta['am_linkedin'][0] ) ? $all_user_meta['am_linkedin'][0] : '';
+		$facebook = isset( $all_user_meta['am_facebook'][0] ) ? $all_user_meta['am_facebook'][0] : '';
+		$instagram = isset( $all_user_meta['am_instagram'][0] ) ? $all_user_meta['am_instagram'][0] : '';
+		$expertise_badges = isset( $all_user_meta['am_expertise_badges'][0] ) ? $all_user_meta['am_expertise_badges'][0] : '';
+		$custom_avatar_id = isset( $all_user_meta['am_custom_avatar'][0] ) ? $all_user_meta['am_custom_avatar'][0] : '';
+
 		$website = get_the_author_meta( 'url', $author_id );
 
 		// Expertise badges.
-		$expertise_badges = get_user_meta( $author_id, 'am_expertise_badges', true );
 		$badges_array = array();
 		if ( ! empty( $expertise_badges ) ) {
 			$badges_array = array_map( 'trim', explode( ',', $expertise_badges ) );
@@ -112,26 +127,27 @@ class AM_Author_Box {
 
 		// Prepare data array for layout methods.
 		$data = array(
-			'author_id'     => $author_id,
-			'name'          => $name,
-			'bio'           => $bio,
-			'show_avatar'   => $show_avatar,
-			'show_social'   => $show_social,
-			'show_badges'   => $show_badges,
-			'size'          => $size,
-			'title_prefix'  => $title_prefix,
-			'bg_color'      => $bg_color,
-			'text_color'    => $text_color,
-			'border_color'  => $border_color,
-			'border_width'  => $border_width,
-			'border_radius' => $border_radius,
-			'padding'       => $padding,
-			'twitter'       => $twitter,
-			'linkedin'      => $linkedin,
-			'facebook'      => $facebook,
-			'instagram'     => $instagram,
-			'website'       => $website,
-			'badges_array'  => $badges_array,
+			'author_id'         => $author_id,
+			'name'              => $name,
+			'bio'               => $bio,
+			'show_avatar'       => $show_avatar,
+			'show_social'       => $show_social,
+			'show_badges'       => $show_badges,
+			'size'              => $size,
+			'title_prefix'      => $title_prefix,
+			'bg_color'          => $bg_color,
+			'text_color'        => $text_color,
+			'border_color'      => $border_color,
+			'border_width'      => $border_width,
+			'border_radius'     => $border_radius,
+			'padding'           => $padding,
+			'twitter'           => $twitter,
+			'linkedin'          => $linkedin,
+			'facebook'          => $facebook,
+			'instagram'         => $instagram,
+			'website'           => $website,
+			'badges_array'      => $badges_array,
+			'custom_avatar_id'  => $custom_avatar_id,
 		);
 
 		// Generate HTML based on layout.
@@ -148,7 +164,18 @@ class AM_Author_Box {
 				break;
 		}
 
-		return apply_filters( 'am_author_box_html', $html, $author_id, $post_id );
+		// Add Person schema for SEO.
+		$html .= $this->get_person_schema( $author_id, $data );
+
+		// Add mobile responsive styles.
+		$html .= $this->get_responsive_styles();
+
+		$html = apply_filters( 'am_author_box_html', $html, $author_id, $post_id );
+
+		// Cache for 1 day (cleared on user profile update).
+		set_transient( $cache_key, $html, DAY_IN_SECONDS );
+
+		return $html;
 	}
 
 	/**
@@ -182,7 +209,7 @@ class AM_Author_Box {
 
 		// Avatar
 		if ( $show_avatar ) {
-			$html .= $this->render_avatar( $author_id, $name, $size, $border_color );
+			$html .= $this->render_avatar( $author_id, $name, $size, $border_color, false, $custom_avatar_id );
 		}
 
 		$html .= '<div class="am-author-info" style="flex: 1;">';
@@ -240,7 +267,7 @@ class AM_Author_Box {
 
 		// Avatar
 		if ( $show_avatar ) {
-			$html .= '<div style="margin-bottom: 20px;">' . $this->render_avatar( $author_id, $name, $size, $border_color ) . '</div>';
+			$html .= '<div style="margin-bottom: 20px;">' . $this->render_avatar( $author_id, $name, $size, $border_color, false, $custom_avatar_id ) . '</div>';
 		}
 
 		$html .= '<div class="am-author-info" style="width: 100%;">';
@@ -298,7 +325,7 @@ class AM_Author_Box {
 
 		// Avatar
 		if ( $show_avatar ) {
-			$html .= '<div style="margin-bottom: 20px;">' . $this->render_avatar( $author_id, $name, $size, $border_color, true ) . '</div>';
+			$html .= '<div style="margin-bottom: 20px;">' . $this->render_avatar( $author_id, $name, $size, $border_color, true, $custom_avatar_id ) . '</div>';
 		}
 
 		$html .= '<div class="am-author-info" style="width: 100%;">';
@@ -333,9 +360,10 @@ class AM_Author_Box {
 	 * @param string $size Size (small, medium, large).
 	 * @param string $border_color Border color.
 	 * @param bool   $larger Make avatar larger for card layout.
+	 * @param string $custom_avatar_id Custom avatar attachment ID.
 	 * @return string Avatar HTML.
 	 */
-	private function render_avatar( $author_id, $name, $size, $border_color, $larger = false ) {
+	private function render_avatar( $author_id, $name, $size, $border_color, $larger = false, $custom_avatar_id = '' ) {
 		$avatar_size = 'large' === $size ? 128 : ( 'small' === $size ? 48 : 80 );
 		if ( $larger ) {
 			$avatar_size = (int) ( $avatar_size * 1.25 );
@@ -346,11 +374,10 @@ class AM_Author_Box {
 		$html = '<div class="am-author-avatar" style="flex-shrink: 0;">';
 
 		// Check for custom avatar from media library.
-		$custom_avatar_id = get_user_meta( $author_id, 'am_custom_avatar', true );
 		if ( $custom_avatar_id ) {
 			$avatar_url = wp_get_attachment_image_url( $custom_avatar_id, array( $avatar_size, $avatar_size ) );
 			if ( $avatar_url ) {
-				$html .= '<img src="' . esc_url( $avatar_url ) . '" alt="' . esc_attr( $name ) . '" width="' . esc_attr( $avatar_size ) . '" height="' . esc_attr( $avatar_size ) . '" style="' . esc_attr( $avatar_border ) . '">';
+				$html .= '<img src="' . esc_url( $avatar_url ) . '" alt="' . esc_attr( $name ) . '" width="' . esc_attr( $avatar_size ) . '" height="' . esc_attr( $avatar_size ) . '" loading="lazy" style="' . esc_attr( $avatar_border ) . '">';
 			} else {
 				$html .= get_avatar( $author_id, $avatar_size, '', $name, array( 'style' => $avatar_border ) );
 			}
@@ -405,23 +432,23 @@ class AM_Author_Box {
 		$html = '<div class="am-author-social" style="display: flex; gap: 12px; flex-wrap: wrap;">';
 
 		if ( $website ) {
-			$html .= '<a href="' . esc_url( $website ) . '" target="_blank" rel="noopener" style="' . esc_attr( $button_style ) . '" onmouseover="this.style.background=\'' . esc_attr( $button_hover ) . '\'; this.style.transform=\'translateY(-2px)\'; this.style.boxShadow=\'0 4px 8px rgba(0,0,0,0.15)\'" onmouseout="this.style.background=\'' . esc_attr( $button_color ) . '\'; this.style.transform=\'translateY(0)\'; this.style.boxShadow=\'0 2px 5px rgba(0,0,0,0.1)\'">' . esc_html__( 'Website', 'admin-manager' ) . '</a>';
+			$html .= '<a href="' . esc_url( $website ) . '" target="_blank" rel="noopener me" style="' . esc_attr( $button_style ) . '" onmouseover="this.style.background=\'' . esc_attr( $button_hover ) . '\'; this.style.transform=\'translateY(-2px)\'; this.style.boxShadow=\'0 4px 8px rgba(0,0,0,0.15)\'" onmouseout="this.style.background=\'' . esc_attr( $button_color ) . '\'; this.style.transform=\'translateY(0)\'; this.style.boxShadow=\'0 2px 5px rgba(0,0,0,0.1)\'">' . esc_html__( 'Website', 'admin-manager' ) . '</a>';
 		}
 
 		if ( $twitter ) {
-			$html .= '<a href="https://twitter.com/' . esc_attr( $twitter ) . '" target="_blank" rel="noopener" style="' . esc_attr( $button_style ) . '" onmouseover="this.style.background=\'' . esc_attr( $button_hover ) . '\'; this.style.transform=\'translateY(-2px)\'; this.style.boxShadow=\'0 4px 8px rgba(0,0,0,0.15)\'" onmouseout="this.style.background=\'' . esc_attr( $button_color ) . '\'; this.style.transform=\'translateY(0)\'; this.style.boxShadow=\'0 2px 5px rgba(0,0,0,0.1)\'">' . esc_html__( 'Twitter', 'admin-manager' ) . '</a>';
+			$html .= '<a href="https://twitter.com/' . esc_attr( $twitter ) . '" target="_blank" rel="noopener me" style="' . esc_attr( $button_style ) . '" onmouseover="this.style.background=\'' . esc_attr( $button_hover ) . '\'; this.style.transform=\'translateY(-2px)\'; this.style.boxShadow=\'0 4px 8px rgba(0,0,0,0.15)\'" onmouseout="this.style.background=\'' . esc_attr( $button_color ) . '\'; this.style.transform=\'translateY(0)\'; this.style.boxShadow=\'0 2px 5px rgba(0,0,0,0.1)\'">' . esc_html__( 'Twitter', 'admin-manager' ) . '</a>';
 		}
 
 		if ( $linkedin ) {
-			$html .= '<a href="' . esc_url( $linkedin ) . '" target="_blank" rel="noopener" style="' . esc_attr( $button_style ) . '" onmouseover="this.style.background=\'' . esc_attr( $button_hover ) . '\'; this.style.transform=\'translateY(-2px)\'; this.style.boxShadow=\'0 4px 8px rgba(0,0,0,0.15)\'" onmouseout="this.style.background=\'' . esc_attr( $button_color ) . '\'; this.style.transform=\'translateY(0)\'; this.style.boxShadow=\'0 2px 5px rgba(0,0,0,0.1)\'">' . esc_html__( 'LinkedIn', 'admin-manager' ) . '</a>';
+			$html .= '<a href="' . esc_url( $linkedin ) . '" target="_blank" rel="noopener me" style="' . esc_attr( $button_style ) . '" onmouseover="this.style.background=\'' . esc_attr( $button_hover ) . '\'; this.style.transform=\'translateY(-2px)\'; this.style.boxShadow=\'0 4px 8px rgba(0,0,0,0.15)\'" onmouseout="this.style.background=\'' . esc_attr( $button_color ) . '\'; this.style.transform=\'translateY(0)\'; this.style.boxShadow=\'0 2px 5px rgba(0,0,0,0.1)\'">' . esc_html__( 'LinkedIn', 'admin-manager' ) . '</a>';
 		}
 
 		if ( $facebook ) {
-			$html .= '<a href="' . esc_url( $facebook ) . '" target="_blank" rel="noopener" style="' . esc_attr( $button_style ) . '" onmouseover="this.style.background=\'' . esc_attr( $button_hover ) . '\'; this.style.transform=\'translateY(-2px)\'; this.style.boxShadow=\'0 4px 8px rgba(0,0,0,0.15)\'" onmouseout="this.style.background=\'' . esc_attr( $button_color ) . '\'; this.style.transform=\'translateY(0)\'; this.style.boxShadow=\'0 2px 5px rgba(0,0,0,0.1)\'">' . esc_html__( 'Facebook', 'admin-manager' ) . '</a>';
+			$html .= '<a href="' . esc_url( $facebook ) . '" target="_blank" rel="noopener me" style="' . esc_attr( $button_style ) . '" onmouseover="this.style.background=\'' . esc_attr( $button_hover ) . '\'; this.style.transform=\'translateY(-2px)\'; this.style.boxShadow=\'0 4px 8px rgba(0,0,0,0.15)\'" onmouseout="this.style.background=\'' . esc_attr( $button_color ) . '\'; this.style.transform=\'translateY(0)\'; this.style.boxShadow=\'0 2px 5px rgba(0,0,0,0.1)\'">' . esc_html__( 'Facebook', 'admin-manager' ) . '</a>';
 		}
 
 		if ( $instagram ) {
-			$html .= '<a href="' . esc_url( $instagram ) . '" target="_blank" rel="noopener" style="' . esc_attr( $button_style ) . '" onmouseover="this.style.background=\'' . esc_attr( $button_hover ) . '\'; this.style.transform=\'translateY(-2px)\'; this.style.boxShadow=\'0 4px 8px rgba(0,0,0,0.15)\'" onmouseout="this.style.background=\'' . esc_attr( $button_color ) . '\'; this.style.transform=\'translateY(0)\'; this.style.boxShadow=\'0 2px 5px rgba(0,0,0,0.1)\'">' . esc_html__( 'Instagram', 'admin-manager' ) . '</a>';
+			$html .= '<a href="' . esc_url( $instagram ) . '" target="_blank" rel="noopener me" style="' . esc_attr( $button_style ) . '" onmouseover="this.style.background=\'' . esc_attr( $button_hover ) . '\'; this.style.transform=\'translateY(-2px)\'; this.style.boxShadow=\'0 4px 8px rgba(0,0,0,0.15)\'" onmouseout="this.style.background=\'' . esc_attr( $button_color ) . '\'; this.style.transform=\'translateY(0)\'; this.style.boxShadow=\'0 2px 5px rgba(0,0,0,0.1)\'">' . esc_html__( 'Instagram', 'admin-manager' ) . '</a>';
 		}
 
 		$html .= '</div>';
@@ -684,5 +711,119 @@ class AM_Author_Box {
 		if ( isset( $_POST['am_expertise_badges'] ) ) {
 			update_user_meta( $user_id, 'am_expertise_badges', sanitize_text_field( $_POST['am_expertise_badges'] ) );
 		}
+	}
+
+	/**
+	 * Get Person schema for author.
+	 *
+	 * @param int   $author_id Author ID.
+	 * @param array $data Author data.
+	 * @return string JSON-LD schema.
+	 */
+	private function get_person_schema( $author_id, $data ) {
+		$schema = array(
+			'@context' => 'https://schema.org',
+			'@type'    => 'Person',
+			'name'     => $data['name'],
+			'url'      => get_author_posts_url( $author_id ),
+		);
+
+		// Add description if available.
+		if ( ! empty( $data['bio'] ) ) {
+			$schema['description'] = wp_strip_all_tags( $data['bio'] );
+		}
+
+		// Add social media profiles.
+		$same_as = array();
+		if ( ! empty( $data['twitter'] ) ) {
+			$same_as[] = 'https://twitter.com/' . $data['twitter'];
+		}
+		if ( ! empty( $data['linkedin'] ) ) {
+			$same_as[] = $data['linkedin'];
+		}
+		if ( ! empty( $data['facebook'] ) ) {
+			$same_as[] = $data['facebook'];
+		}
+		if ( ! empty( $data['instagram'] ) ) {
+			$same_as[] = $data['instagram'];
+		}
+		if ( ! empty( $data['website'] ) ) {
+			$same_as[] = $data['website'];
+		}
+
+		if ( ! empty( $same_as ) ) {
+			$schema['sameAs'] = $same_as;
+		}
+
+		// Add image if custom avatar exists.
+		if ( ! empty( $data['custom_avatar_id'] ) ) {
+			$avatar_url = wp_get_attachment_image_url( $data['custom_avatar_id'], 'medium' );
+			if ( $avatar_url ) {
+				$schema['image'] = $avatar_url;
+			}
+		}
+
+		return '<script type="application/ld+json">' . wp_json_encode( $schema, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT ) . '</script>';
+	}
+
+	/**
+	 * Get responsive CSS styles.
+	 *
+	 * @return string Responsive CSS.
+	 */
+	private function get_responsive_styles() {
+		return '<style>
+		@media (max-width: 768px) {
+			.am-author-box-horizontal .am-author-content {
+				flex-direction: column !important;
+				gap: 15px !important;
+				text-align: center;
+			}
+			.am-author-box-horizontal .am-author-avatar {
+				margin: 0 auto !important;
+			}
+			.am-author-box-horizontal .am-author-info {
+				text-align: center !important;
+			}
+			.am-author-box .am-author-name {
+				font-size: 20px !important;
+			}
+			.am-author-box .am-author-social {
+				justify-content: center !important;
+			}
+			.am-author-box .am-author-social a {
+				min-width: 44px;
+				min-height: 44px;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+			}
+		}
+		</style>';
+	}
+
+	/**
+	 * Clear cache when user is updated.
+	 *
+	 * @param int $user_id User ID.
+	 */
+	public function clear_cache_on_user_update( $user_id ) {
+		// Clear all cached author boxes for this user.
+		global $wpdb;
+		$wpdb->query(
+			$wpdb->prepare(
+				"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s",
+				'_transient_am_ab_' . $user_id . '_%'
+			)
+		);
+	}
+
+	/**
+	 * Clear cache when user is deleted.
+	 *
+	 * @param int $user_id User ID.
+	 */
+	public function clear_cache_on_user_delete( $user_id ) {
+		$this->clear_cache_on_user_update( $user_id );
 	}
 }

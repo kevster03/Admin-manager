@@ -37,6 +37,10 @@ class AM_Table_Of_Contents {
 		// Register shortcode.
 		add_shortcode( 'am-toc', array( $this, 'render_toc_shortcode' ) );
 		add_shortcode( 'am_toc', array( $this, 'render_toc_shortcode' ) );
+
+		// Clear cache when post is updated.
+		add_action( 'save_post', array( $this, 'clear_cache_on_save' ) );
+		add_action( 'delete_post', array( $this, 'clear_cache_on_delete' ) );
 	}
 
 	/**
@@ -144,6 +148,16 @@ class AM_Table_Of_Contents {
 	 * @return string TOC HTML or empty string.
 	 */
 	public function generate_toc_html( $content ) {
+		// Check cache first (safe for caching plugins - uses unique prefix).
+		global $post;
+		if ( $post ) {
+			$cache_key = 'am_toc_' . $post->ID;
+			$cached = get_transient( $cache_key );
+			if ( false !== $cached ) {
+				return $cached;
+			}
+		}
+
 		$settings = am_get_module_setting( 'table-of-contents' );
 
 		// Get heading levels to include.
@@ -294,7 +308,17 @@ class AM_Table_Of_Contents {
 		</script>
 		";
 
-		return apply_filters( 'am_toc_html', $html, $headings );
+		// Add BreadcrumbList schema for SEO.
+		$html .= $this->get_breadcrumb_schema( $headings );
+
+		$html = apply_filters( 'am_toc_html', $html, $headings );
+
+		// Cache for 1 week (cleared on post update).
+		if ( $post ) {
+			set_transient( $cache_key, $html, WEEK_IN_SECONDS );
+		}
+
+		return $html;
 	}
 
 	/**
@@ -395,5 +419,76 @@ class AM_Table_Of_Contents {
 
 		// Generate TOC from processed content.
 		return $this->generate_toc_html( $processed_content );
+	}
+
+	/**
+	 * Get BreadcrumbList schema for TOC navigation.
+	 *
+	 * @param array $headings Array of headings.
+	 * @return string JSON-LD schema.
+	 */
+	private function get_breadcrumb_schema( $headings ) {
+		if ( empty( $headings ) ) {
+			return '';
+		}
+
+		global $post;
+		if ( ! $post ) {
+			return '';
+		}
+
+		$items = array();
+		$position = 1;
+
+		// Add current page as first item.
+		$items[] = array(
+			'@type'    => 'ListItem',
+			'position' => $position++,
+			'name'     => get_the_title(),
+			'item'     => get_permalink(),
+		);
+
+		// Add each H2 heading as breadcrumb item.
+		foreach ( $headings as $heading ) {
+			if ( 2 === $heading['level'] ) {
+				$items[] = array(
+					'@type'    => 'ListItem',
+					'position' => $position++,
+					'name'     => $heading['text'],
+					'item'     => get_permalink() . '#' . $heading['id'],
+				);
+			}
+		}
+
+		// Only output schema if we have more than 1 item.
+		if ( count( $items ) <= 1 ) {
+			return '';
+		}
+
+		$schema = array(
+			'@context'        => 'https://schema.org',
+			'@type'           => 'BreadcrumbList',
+			'itemListElement' => $items,
+		);
+
+		return '<script type="application/ld+json">' . wp_json_encode( $schema, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT ) . '</script>';
+	}
+
+	/**
+	 * Clear cache when post is saved.
+	 *
+	 * @param int $post_id Post ID.
+	 */
+	public function clear_cache_on_save( $post_id ) {
+		delete_transient( 'am_toc_' . $post_id );
+	}
+
+	/**
+	 * Clear cache when post is deleted.
+	 *
+	 * @param int $post_id Post ID.
+	 */
+	public function clear_cache_on_delete( $post_id ) {
+		delete_transient( 'am_toc_' . $post_id );
 	}
 }

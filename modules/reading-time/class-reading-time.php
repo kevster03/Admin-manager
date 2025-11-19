@@ -22,8 +22,10 @@ class AM_Reading_Time {
 	 */
 	public function __construct() {
 		add_filter( 'the_content', array( $this, 'auto_insert_reading_time' ), 1 );
-		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_frontend_assets' ) );
-		add_action( 'wp_footer', array( $this, 'render_progress_bar' ) );
+
+		// Clear cache when post is updated.
+		add_action( 'save_post', array( $this, 'clear_cache_on_save' ) );
+		add_action( 'delete_post', array( $this, 'clear_cache_on_delete' ) );
 	}
 
 	/**
@@ -121,6 +123,13 @@ class AM_Reading_Time {
 			$post_id = get_the_ID();
 		}
 
+		// Check cache first (safe for caching plugins - uses unique prefix).
+		$cache_key = 'am_rt_' . $post_id;
+		$cached = get_transient( $cache_key );
+		if ( false !== $cached ) {
+			return $cached;
+		}
+
 		$post = get_post( $post_id );
 
 		if ( ! $post ) {
@@ -138,83 +147,30 @@ class AM_Reading_Time {
 		}
 
 		/* translators: %d: Reading time in minutes */
-		return sprintf( _n( '%d min read', '%d min read', $minutes, 'admin-manager' ), $minutes );
+		$result = sprintf( _n( '%d min read', '%d min read', $minutes, 'admin-manager' ), $minutes );
+
+		// Cache for 1 week (cleared on post update).
+		set_transient( $cache_key, $result, WEEK_IN_SECONDS );
+
+		return $result;
 	}
 
 	/**
-	 * Enqueue frontend assets for progress bar.
+	 * Clear cache when post is saved.
+	 *
+	 * @param int $post_id Post ID.
 	 */
-	public function enqueue_frontend_assets() {
-		if ( ! is_singular() ) {
-			return;
-		}
-
-		$settings = am_get_module_setting( 'reading-time' );
-		$show_progress_bar = ! empty( $settings['show_progress_bar'] );
-		$enabled_post_types = isset( $settings['enabled_post_types'] ) ? $settings['enabled_post_types'] : array();
-
-		if ( ! $show_progress_bar || ! in_array( get_post_type(), $enabled_post_types, true ) ) {
-			return;
-		}
-
-		$progress_bar_color = isset( $settings['progress_bar_color'] ) ? sanitize_hex_color( $settings['progress_bar_color'] ) : '#0073aa';
-		$progress_bar_height = isset( $settings['progress_bar_height'] ) ? absint( $settings['progress_bar_height'] ) : 4;
-
-		// Inline CSS for progress bar.
-		$custom_css = "
-			#am-reading-progress-bar {
-				position: fixed;
-				top: 0;
-				left: 0;
-				width: 0%;
-				height: {$progress_bar_height}px;
-				background-color: {$progress_bar_color};
-				z-index: 9999;
-				transition: width 0.2s ease-out;
-			}
-		";
-		wp_add_inline_style( 'am-admin', $custom_css );
-
-		// Inline JavaScript for progress bar.
-		$custom_js = "
-		(function() {
-			'use strict';
-
-			function updateProgressBar() {
-				var winScroll = document.body.scrollTop || document.documentElement.scrollTop;
-				var height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-				var scrolled = (winScroll / height) * 100;
-				var progressBar = document.getElementById('am-reading-progress-bar');
-				if (progressBar) {
-					progressBar.style.width = scrolled + '%';
-				}
-			}
-
-			window.addEventListener('scroll', updateProgressBar);
-			window.addEventListener('resize', updateProgressBar);
-			updateProgressBar();
-		})();
-		";
-		wp_add_inline_script( 'am-admin', $custom_js );
+	public function clear_cache_on_save( $post_id ) {
+		delete_transient( 'am_rt_' . $post_id );
 	}
 
 	/**
-	 * Render progress bar HTML in footer.
+	 * Clear cache when post is deleted.
+	 *
+	 * @param int $post_id Post ID.
 	 */
-	public function render_progress_bar() {
-		if ( ! is_singular() ) {
-			return;
-		}
-
-		$settings = am_get_module_setting( 'reading-time' );
-		$show_progress_bar = ! empty( $settings['show_progress_bar'] );
-		$enabled_post_types = isset( $settings['enabled_post_types'] ) ? $settings['enabled_post_types'] : array();
-
-		if ( ! $show_progress_bar || ! in_array( get_post_type(), $enabled_post_types, true ) ) {
-			return;
-		}
-
-		echo '<div id="am-reading-progress-bar"></div>';
+	public function clear_cache_on_delete( $post_id ) {
+		delete_transient( 'am_rt_' . $post_id );
 	}
 
 	/**
