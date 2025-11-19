@@ -61,6 +61,12 @@ class AM_Module_Manager {
 				'file'        => 'table-of-contents/class-table-of-contents.php',
 				'class'       => 'AM_Table_Of_Contents',
 			),
+			'custom-login'        => array(
+				'name'        => __( 'Custom Login', 'admin-manager' ),
+				'description' => __( 'Customize login page: logo, colors, background, security options. Enhanced & secure.', 'admin-manager' ),
+				'file'        => 'custom-login/class-custom-login.php',
+				'class'       => 'AM_Custom_Login',
+			),
 			'performance'         => array(
 				'name'        => __( 'Performance', 'admin-manager' ),
 				'description' => __( 'Optimize site performance: manage Google Fonts, preconnect/preload assets per post type.', 'admin-manager' ),

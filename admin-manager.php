@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Admin Manager
  * Plugin URI: https://github.com/kevster03/Admin-manager
- * Description: Lightweight, modular WordPress plugin for content features. Includes reading time, table of contents, author box with layouts and badges, and performance optimization tools.
+ * Description: Lightweight, modular WordPress plugin for content and performance. Includes reading time, table of contents, author box, custom login page, and performance optimization tools.
  * Version: 5.0.0
  * Requires at least: 5.9
  * Requires PHP: 7.4
