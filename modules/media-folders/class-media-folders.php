@@ -118,6 +118,7 @@ class AM_Media_Folders {
 					'folderName'     => __( 'Folder Name', 'admin-manager' ),
 					'rename'         => __( 'Rename', 'admin-manager' ),
 					'delete'         => __( 'Delete', 'admin-manager' ),
+					'addFiles'       => __( 'Add Files', 'admin-manager' ),
 					'confirmDelete'  => __( 'Are you sure you want to delete this folder? Media files will not be deleted.', 'admin-manager' ),
 					'maxDepthError'  => __( 'Maximum folder depth reached (4 levels).', 'admin-manager' ),
 					'allMedia'       => __( 'All Media', 'admin-manager' ),

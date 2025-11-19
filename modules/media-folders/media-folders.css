@@ -198,6 +198,23 @@ body.upload-php .wrap {
 	color: #dc3545;
 }
 
+.am-add-files-to-folder {
+	background: #2196f3 !important;
+	color: white !important;
+	padding: 3px 6px !important;
+	border-radius: 4px !important;
+	margin-right: 4px;
+}
+
+.am-add-files-to-folder .dashicons {
+	color: white !important;
+	font-size: 12px;
+}
+
+.am-add-files-to-folder:hover {
+	background: #1976d2 !important;
+}
+
 /* Folder Tree Children */
 .am-folder-children {
 	max-height: 1000px;

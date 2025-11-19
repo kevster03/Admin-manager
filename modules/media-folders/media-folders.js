@@ -204,6 +204,9 @@
 						<span class="am-folder-name">${folder.name}</span>
 						<span class="am-folder-count">${folder.count || 0}</span>
 						<span class="am-folder-actions">
+							<button type="button" class="am-folder-action am-add-files-to-folder" data-folder-id="${folder.id}" data-folder-name="${folder.name}" title="${amMediaFolders.strings.addFiles || 'Add Files'}">
+								<span class="dashicons dashicons-plus"></span>
+							</button>
 							<button type="button" class="am-folder-action am-create-folder" data-parent="${folder.id}" title="${amMediaFolders.strings.createFolder}">
 								<span class="dashicons dashicons-plus-alt"></span>
 							</button>
@@ -291,6 +294,14 @@
 				self.deleteFolder(folderId);
 			});
 
+			// Add files to folder
+			$(document).on('click', '.am-add-files-to-folder', function(e) {
+				e.stopPropagation();
+				const folderId = $(this).data('folder-id');
+				const folderName = $(this).data('folder-name');
+				self.openFileSelector(folderId, folderName);
+			});
+
 			// Drag & drop support
 			this.initDragDrop();
 		},
@@ -325,9 +336,11 @@
 		},
 
 		/**
-		 * Enhance media library with drag support.
+		 * Enhance media library with drag support and add to folder button.
 		 */
 		enhanceMediaLibrary() {
+			const self = this;
+
 			// Add draggable to attachment thumbnails
 			$(document).on('mouseenter', '.attachment', function() {
 				if (!$(this).attr('draggable')) {
@@ -338,6 +351,167 @@
 						e.originalEvent.dataTransfer.setData('attachment-id', attachmentId);
 						e.originalEvent.dataTransfer.effectAllowed = 'move';
 					});
+				}
+			});
+
+			// Add "Add to Folder" button for grid view
+			if ($('.upload-php').length) {
+				// Watch for selection changes in media library
+				const checkSelectionInterval = setInterval(function() {
+					const $selected = $('.attachment.selected, .attachment.details');
+
+					if ($selected.length > 0 && !$('#am-add-to-folder-btn').length) {
+						self.addMediaLibraryButton();
+					} else if ($selected.length === 0 && $('#am-add-to-folder-btn').length) {
+						$('#am-add-to-folder-btn').remove();
+					}
+				}, 500);
+			}
+		},
+
+		/**
+		 * Add "Add to Folder" button to media library.
+		 */
+		addMediaLibraryButton() {
+			const self = this;
+
+			// Remove if already exists
+			$('#am-add-to-folder-btn').remove();
+
+			// Build folder dropdown options
+			const folders = this.getFlatFolderList(amMediaFolders.folders);
+			let folderOptions = '<option value="">Select Folder...</option>';
+			folders.forEach(folder => {
+				const indent = '—'.repeat(folder.level - 1);
+				folderOptions += `<option value="${folder.id}">${indent} ${folder.name}</option>`;
+			});
+
+			// Create button with dropdown
+			const $button = $(`
+				<div id="am-add-to-folder-btn" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
+					<div style="margin-bottom: 10px;">
+						<strong>Add to Folder</strong>
+					</div>
+					<select id="am-folder-select" style="width: 200px; margin-bottom: 10px;">
+						${folderOptions}
+					</select>
+					<br>
+					<button type="button" class="button button-primary" id="am-move-to-folder-btn">Move to Folder</button>
+					<button type="button" class="button" id="am-cancel-folder-btn">Cancel</button>
+				</div>
+			`);
+
+			$('body').append($button);
+
+			// Handle move button
+			$('#am-move-to-folder-btn').on('click', function() {
+				const folderId = $('#am-folder-select').val();
+				if (!folderId) {
+					alert('Please select a folder');
+					return;
+				}
+
+				const $selected = $('.attachment.selected, .attachment.details');
+				const attachmentIds = [];
+				$selected.each(function() {
+					attachmentIds.push($(this).data('id'));
+				});
+
+				if (attachmentIds.length > 0) {
+					const folderName = $('#am-folder-select option:selected').text().trim();
+					self.bulkMoveMedia(attachmentIds, folderId, folderName);
+				}
+			});
+
+			// Handle cancel button
+			$('#am-cancel-folder-btn').on('click', function() {
+				$('#am-add-to-folder-btn').remove();
+			});
+		},
+
+		/**
+		 * Get flat folder list for dropdown.
+		 *
+		 * @param {Array} folders Folder tree.
+		 * @return {Array} Flat list of folders.
+		 */
+		getFlatFolderList(folders) {
+			let flat = [];
+			const traverse = (items, level = 1) => {
+				items.forEach(item => {
+					flat.push({
+						id: item.id,
+						name: item.name,
+						level: level
+					});
+					if (item.children && item.children.length > 0) {
+						traverse(item.children, level + 1);
+					}
+				});
+			};
+			traverse(folders);
+			return flat;
+		},
+
+		/**
+		 * Open file selector modal to add files to folder.
+		 *
+		 * @param {number} folderId Folder ID.
+		 * @param {string} folderName Folder name.
+		 */
+		openFileSelector(folderId, folderName) {
+			const self = this;
+
+			// Use WordPress media library modal
+			if (typeof wp !== 'undefined' && wp.media) {
+				const frame = wp.media({
+					title: `Add Files to ${folderName}`,
+					button: {
+						text: 'Add to Folder'
+					},
+					multiple: true
+				});
+
+				frame.on('select', function() {
+					const attachments = frame.state().get('selection').toJSON();
+					const attachmentIds = attachments.map(a => a.id);
+
+					if (attachmentIds.length > 0) {
+						self.bulkMoveMedia(attachmentIds, folderId, folderName);
+					}
+				});
+
+				frame.open();
+			}
+		},
+
+		/**
+		 * Bulk move media files to folder.
+		 *
+		 * @param {Array} attachmentIds Array of attachment IDs.
+		 * @param {number} folderId Target folder ID.
+		 * @param {string} folderName Folder name.
+		 */
+		bulkMoveMedia(attachmentIds, folderId, folderName) {
+			$.ajax({
+				url: amMediaFolders.ajaxUrl,
+				type: 'POST',
+				data: {
+					action: 'am_bulk_move_media',
+					nonce: amMediaFolders.nonce,
+					attachment_ids: attachmentIds,
+					folder_id: folderId
+				},
+				success: (response) => {
+					if (response.success) {
+						// Refresh the page to show updated counts
+						location.reload();
+					} else {
+						alert(response.data.message || 'Error moving files');
+					}
+				},
+				error: () => {
+					alert('Error moving files to folder');
 				}
 			});
 		},
