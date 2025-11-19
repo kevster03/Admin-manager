@@ -39,6 +39,7 @@ class AM_Media_Folders {
 		add_action( 'init', array( $this, 'register_taxonomy' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
 		add_filter( 'ajax_query_attachments_args', array( $this, 'filter_media_by_folder' ) );
+		add_filter( 'pre_get_posts', array( $this, 'filter_media_grid_by_folder' ) );
 		add_action( 'wp_ajax_am_create_folder', array( $this, 'ajax_create_folder' ) );
 		add_action( 'wp_ajax_am_rename_folder', array( $this, 'ajax_rename_folder' ) );
 		add_action( 'wp_ajax_am_delete_folder', array( $this, 'ajax_delete_folder' ) );
@@ -254,7 +255,7 @@ class AM_Media_Folders {
 	}
 
 	/**
-	 * Filter media library by folder.
+	 * Filter media library by folder (AJAX/Modal view).
 	 *
 	 * @param array $query Query args.
 	 * @return array Modified query args.
@@ -283,6 +284,65 @@ class AM_Media_Folders {
 		}
 
 		return $query;
+	}
+
+	/**
+	 * Filter media library by folder (Grid view).
+	 *
+	 * @param WP_Query $query The WP_Query instance.
+	 */
+	public function filter_media_grid_by_folder( $query ) {
+		// Only filter on upload.php admin page for attachments
+		if ( ! is_admin() || ! $query->is_main_query() ) {
+			return;
+		}
+
+		global $pagenow;
+		if ( 'upload.php' !== $pagenow ) {
+			return;
+		}
+
+		// Check if media_folder parameter is set
+		if ( ! isset( $_GET['media_folder'] ) ) {
+			return;
+		}
+
+		$folder_id = intval( $_GET['media_folder'] );
+
+		self::debug_log( "Filtering grid view by folder", 'info', array(
+			'folder_id' => $folder_id,
+			'pagenow'   => $pagenow,
+		) );
+
+		if ( $folder_id > 0 ) {
+			// Show media in specific folder
+			$query->set(
+				'tax_query',
+				array(
+					array(
+						'taxonomy' => self::TAXONOMY,
+						'field'    => 'term_id',
+						'terms'    => $folder_id,
+					),
+				)
+			);
+			self::debug_log( "Applied tax_query filter for folder {$folder_id}", 'success' );
+		} elseif ( -1 === $folder_id ) {
+			// Show uncategorized media (not in any folder)
+			$query->set(
+				'tax_query',
+				array(
+					array(
+						'taxonomy' => self::TAXONOMY,
+						'operator' => 'NOT EXISTS',
+					),
+				)
+			);
+			self::debug_log( "Applied tax_query filter for uncategorized", 'success' );
+		} elseif ( 0 === $folder_id ) {
+			// Show all media - no filter needed
+			self::debug_log( "Showing all media (no filter)", 'info' );
+		}
 	}
 
 	/**
