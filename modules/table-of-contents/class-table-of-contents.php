@@ -148,15 +148,7 @@ class AM_Table_Of_Contents {
 	 * @return string TOC HTML or empty string.
 	 */
 	public function generate_toc_html( $content ) {
-		// Check cache first (safe for caching plugins - uses unique prefix).
 		global $post;
-		if ( $post ) {
-			$cache_key = 'am_toc_' . $post->ID;
-			$cached = get_transient( $cache_key );
-			if ( false !== $cached ) {
-				return $cached;
-			}
-		}
 
 		$settings = am_get_module_setting( 'table-of-contents' );
 
@@ -189,6 +181,16 @@ class AM_Table_Of_Contents {
 		$show_numbers   = ! empty( $settings['show_numbers'] );
 		$collapsible    = ! empty( $settings['collapsible'] );
 		$collapsed      = ! empty( $settings['collapsed'] );
+
+		// Check cache (includes settings hash so style changes create new cache).
+		if ( $post ) {
+			$settings_hash = md5( serialize( array( $bg_color, $text_color, $border_color, $h2_color, $other_color, $border_width, $border_radius, $padding, $title, $show_numbers, $collapsible, $collapsed, $heading_levels ) ) );
+			$cache_key = 'am_toc_' . $post->ID . '_' . substr( $settings_hash, 0, 8 );
+			$cached = get_transient( $cache_key );
+			if ( false !== $cached ) {
+				return $cached;
+			}
+		}
 
 		// Build styles.
 		$container_styles = sprintf(
