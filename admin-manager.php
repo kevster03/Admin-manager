@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Admin Manager
  * Plugin URI: https://github.com/kevster03/Admin-manager
- * Description: Lightweight, modular WordPress plugin for content features. Includes reading time with progress bar, table of contents, author box with layouts and badges, virtual media folders with file explorer-like interface, and custom login page styling.
+ * Description: Lightweight, modular WordPress plugin for content features. Includes reading time with progress bar, table of contents, author box with layouts and badges, and custom login page styling.
  * Version: 4.0.0
  * Requires at least: 5.9
  * Requires PHP: 7.4

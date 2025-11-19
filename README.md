@@ -6,7 +6,7 @@ A lightweight, modular, production-ready WordPress plugin to replace multiple sm
 
 Admin Manager is 100% PHP + vanilla JavaScript with no external dependencies. It's designed to be fast, secure, and compatible with WordPress 5.9+ and PHP 7.4+.
 
-### 9 Powerful Modules
+### 8 Powerful Modules
 
 1. **Script Manager** - Detect and disable unnecessary scripts/styles sitewide, per post type, or per page
 2. **Google Fonts Manager** - Disable Google Fonts and replace with system fonts or local fonts
@@ -14,9 +14,8 @@ Admin Manager is 100% PHP + vanilla JavaScript with no external dependencies. It
 4. **Table of Contents** - Auto-generate table of contents for posts
 5. **Author Box** - Display author info with bio, avatar, and social links
 6. **Reading Time** - Calculate and display estimated reading time
-7. **Virtual Media Folders** - Organize media library with taxonomy-based folders
-8. **Custom Login** - Customize WordPress login page branding
-9. **WP Hide** - Hide WordPress fingerprints from detector sites
+7. **Custom Login** - Customize WordPress login page branding
+8. **WP Hide** - Hide WordPress fingerprints from detector sites
 
 ## 📋 Requirements
 
@@ -137,21 +136,7 @@ echo am_get_reading_time( get_the_ID() );
 ?>
 ```
 
-### 7. Virtual Media Folders
-
-**Purpose**: Organize media library without changing file URLs.
-
-**Usage:**
-```
-1. Go to Media → Library
-2. Click "Enter folder name:" button
-3. Create folders
-4. Filter and assign files
-```
-
-**Important:** Folders are virtual - deleting them doesn't delete files.
-
-### 8. Custom Login
+### 7. Custom Login
 
 **Purpose**: Brand your WordPress login page.
 
@@ -160,7 +145,7 @@ echo am_get_reading_time( get_the_ID() );
 - Background color/image
 - Custom CSS
 
-### 9. WP Hide
+### 8. WP Hide
 
 **Purpose**: Hide WordPress fingerprints for security through obscurity.
 

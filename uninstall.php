@@ -25,7 +25,6 @@ function am_uninstall_cleanup_options() {
 	$modules = array(
 		'author-box',
 		'reading-time',
-		'media-folders',
 		'custom-login',
 	);
 
@@ -59,27 +58,6 @@ function am_uninstall_cleanup_post_types() {
  */
 function am_uninstall_cleanup_taxonomies() {
 	global $wpdb;
-
-	// Get media folder term IDs.
-	$term_ids = $wpdb->get_col(
-		$wpdb->prepare(
-			"SELECT term_id FROM {$wpdb->term_taxonomy} WHERE taxonomy = %s",
-			'am_media_folder'
-		)
-	);
-
-	if ( ! empty( $term_ids ) ) {
-		$term_ids_string = implode( ',', array_map( 'intval', $term_ids ) );
-
-		// Delete term relationships.
-		$wpdb->query( "DELETE FROM {$wpdb->term_relationships} WHERE term_taxonomy_id IN ({$term_ids_string})" );
-
-		// Delete term taxonomy records.
-		$wpdb->query( "DELETE FROM {$wpdb->term_taxonomy} WHERE taxonomy = 'am_media_folder'" );
-
-		// Delete terms.
-		$wpdb->query( "DELETE FROM {$wpdb->terms} WHERE term_id IN ({$term_ids_string})" );
-	}
 
 	// Clean up orphaned term meta.
 	$wpdb->query( "DELETE FROM {$wpdb->termmeta} WHERE term_id NOT IN (SELECT term_id FROM {$wpdb->terms})" );

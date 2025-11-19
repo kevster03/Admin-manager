@@ -61,18 +61,12 @@ class AM_Module_Manager {
 				'file'        => 'table-of-contents/class-table-of-contents.php',
 				'class'       => 'AM_Table_Of_Contents',
 			),
-			'media-folders'       => array(
-				'name'        => __( 'Media Folders', 'admin-manager' ),
-				'description' => __( 'Organize WordPress media library with virtual folders, drag & drop support, and 4-level hierarchy.', 'admin-manager' ),
-				'file'        => 'media-folders/class-media-folders.php',
-				'class'       => 'AM_Media_Folders',
-			),
-			'custom-login'        => array(
-				'name'        => __( 'Custom Login', 'admin-manager' ),
-				'description' => __( 'Customize WordPress login page with logo, colors, and branding.', 'admin-manager' ),
-				'file'        => 'custom-login/class-custom-login.php',
-				'class'       => 'AM_Custom_Login',
-			),
+		'custom-login'        => array(
+			'name'        => __( 'Custom Login', 'admin-manager' ),
+			'description' => __( 'Customize WordPress login page with logo, colors, and branding.', 'admin-manager' ),
+			'file'        => 'custom-login/class-custom-login.php',
+			'class'       => 'AM_Custom_Login',
+		),
 		);
 	}
 
