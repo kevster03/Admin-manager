@@ -68,17 +68,25 @@ class AM_Custom_Login {
 		$settings = am_get_module_setting( 'custom-login' );
 		$custom_slug = isset( $settings['custom_login_slug'] ) ? sanitize_title( $settings['custom_login_slug'] ) : '';
 
+		// Get the last slug we used.
+		$last_slug = get_option( 'am_custom_login_last_slug' );
+
 		if ( empty( $custom_slug ) ) {
+			// Slug was removed, clean up.
+			if ( $last_slug ) {
+				flush_rewrite_rules();
+				delete_option( 'am_custom_login_last_slug' );
+			}
 			return;
 		}
 
 		add_rewrite_rule( '^' . $custom_slug . '/?$', 'index.php?am_custom_login=1', 'top' );
 		add_rewrite_tag( '%am_custom_login%', '([^&]+)' );
 
-		// Flush rewrite rules if needed (only once after activation).
-		if ( get_option( 'am_custom_login_flush_rewrite' ) ) {
+		// Flush if slug changed or doesn't exist in rules.
+		if ( $last_slug !== $custom_slug ) {
 			flush_rewrite_rules();
-			delete_option( 'am_custom_login_flush_rewrite' );
+			update_option( 'am_custom_login_last_slug', $custom_slug );
 		}
 	}
 
